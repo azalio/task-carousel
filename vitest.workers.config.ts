@@ -12,6 +12,11 @@ export default defineWorkersConfig(async () => {
         workers: {
           wrangler: { configPath: './wrangler.jsonc' },
           miniflare: {
+            // wrangler.jsonc задаёт assets без directory (его подставляет
+            // @cloudflare/vite-plugin), а unstable_getMiniflareWorkerOptions
+            // требует directory — без этого override пул падает на старте.
+            // Тесты ассеты не используют; public/ — всегда существующий каталог.
+            assets: { directory: './public' },
             bindings: {
               TEST_MIGRATIONS: migrations,
               // Тесты ходят в API от имени этого пользователя (auth-bypass как в dev).

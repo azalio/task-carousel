@@ -22,6 +22,7 @@ interface CarouselScreenProps {
   email: string | null;
   online: boolean;
   onCurrentChange: (current: CarouselCurrent) => void;
+  onReloadCurrent: () => Promise<void>;
   onOpenTasks: (tab: 'active' | 'completed') => void;
   onOpenHistory: (taskId: string, taskTitle: string) => void;
   onOpenCreate: () => void;
@@ -33,6 +34,7 @@ export function CarouselScreen({
   email,
   online,
   onCurrentChange,
+  onReloadCurrent,
   onOpenTasks,
   onOpenHistory,
   onOpenCreate,
@@ -79,7 +81,7 @@ export function CarouselScreen({
   };
 
   const move = async (direction: Direction) => {
-    if (pending !== null || current.total === 0) return;
+    if (pending !== null || !online || current.total === 0) return;
     setPending('move');
     setError(null);
     try {
@@ -119,7 +121,9 @@ export function CarouselScreen({
   const undoComplete = async (completedTaskId: string) => {
     try {
       await api.reopenTask(completedTaskId);
-      onCurrentChange(await api.carouselCurrent());
+      // Перезагрузку current делаем через защищённый guard'ом App: если за время
+      // reopen+GET пользователь уже пролистнул карусель, устаревший ответ отбросится.
+      await onReloadCurrent();
     } catch (err) {
       onToast(errorMessage(err));
     }
@@ -153,6 +157,10 @@ export function CarouselScreen({
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
+      // Поверх карусели может быть открыт модальный диалог (TaskForm). Его
+      // хоткеи не должны пробивать в фоновую карусель: Ctrl/Cmd+Enter в форме
+      // создал бы запись прогресса (необратимо), стрелки — пролистали бы карусель.
+      if (document.querySelector('[aria-modal="true"]')) return;
       if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
         event.preventDefault();
         void actionsRef.current.checkIn();
@@ -221,7 +229,7 @@ export function CarouselScreen({
               type="button"
               className="arrow-btn arrow-left"
               aria-label="Предыдущая задача"
-              disabled={pending !== null}
+              disabled={pending !== null || !online}
               onClick={() => void move('previous')}
             >
               <ChevronLeftIcon />
@@ -263,7 +271,7 @@ export function CarouselScreen({
               type="button"
               className="arrow-btn arrow-right"
               aria-label="Следующая задача"
-              disabled={pending !== null}
+              disabled={pending !== null || !online}
               onClick={() => void move('next')}
             >
               <ChevronRightIcon />

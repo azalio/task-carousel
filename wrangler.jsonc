@@ -2,7 +2,7 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "task-carousel",
   "main": "worker/index.ts",
-  "compatibility_date": "2026-07-01",
+  "compatibility_date": "2026-03-01",
   "compatibility_flags": ["nodejs_compat"],
   // Статика собирается Vite-плагином; все запросы идут через Worker,
   // чтобы навесить CSP и остальные security-заголовки на HTML/ассеты.

@@ -113,34 +113,36 @@ export async function getLastProgress(
     .first<{ note: string; created_at: number }>();
 }
 
-// Позиция для новой/возвращённой задачи: MAX(position) среди активных + 1 (§5, §7).
-export async function getNextActivePosition(db: D1Database, email: string): Promise<number> {
-  const row = await db
-    .prepare(
-      `SELECT COALESCE(MAX(position), 0) + 1 AS next_position
-       FROM tasks WHERE user_email = ?1 AND status = 'active'`,
-    )
-    .bind(email)
-    .first<{ next_position: number }>();
-  return row?.next_position ?? 1;
-}
-
-export function insertTaskStmt(db: D1Database, task: TaskRow): D1PreparedStatement {
+// Создаёт задачу, вычисляя позицию (MAX среди активных + 1) атомарно ВНУТРИ INSERT —
+// без гонки read-then-write двух параллельных POST (§5, §7). Строку с реальной
+// позицией возвращает через RETURNING.
+export function insertTaskStmt(
+  db: D1Database,
+  fields: {
+    id: string;
+    user_email: string;
+    title: string;
+    description: string;
+    created_at: number;
+    updated_at: number;
+  },
+): D1PreparedStatement {
   return db
     .prepare(
       `INSERT INTO tasks (${TASK_COLUMNS})
-       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)`,
+       VALUES (?1, ?2, ?3, ?4, 'active',
+               (SELECT COALESCE(MAX(position), 0) + 1 FROM tasks
+                WHERE user_email = ?2 AND status = 'active'),
+               ?5, ?6, NULL)
+       RETURNING ${TASK_COLUMNS}`,
     )
     .bind(
-      task.id,
-      task.user_email,
-      task.title,
-      task.description,
-      task.status,
-      task.position,
-      task.created_at,
-      task.updated_at,
-      task.completed_at,
+      fields.id,
+      fields.user_email,
+      fields.title,
+      fields.description,
+      fields.created_at,
+      fields.updated_at,
     );
 }
 
@@ -183,21 +185,32 @@ export function completeTaskStmt(
     .bind(now, taskId, email);
 }
 
+// Возвращает задачу в работу, вычисляя новую позицию (в конец активных) атомарно
+// внутри UPDATE. Подзапрос MAX видит состояние ДО апдейта — строка ещё completed и
+// в WHERE status='active' не попадает, поэтому позиция корректна. Строку с новой
+// позицией отдаёт через RETURNING.
 export function reopenTaskStmt(
   db: D1Database,
   email: string,
   taskId: string,
-  position: number,
   now: number,
 ): D1PreparedStatement {
   return db
     .prepare(
-      `UPDATE tasks SET status = 'active', completed_at = NULL, position = ?1, updated_at = ?2
-       WHERE id = ?3 AND user_email = ?4`,
+      `UPDATE tasks
+       SET status = 'active', completed_at = NULL,
+           position = (SELECT COALESCE(MAX(position), 0) + 1 FROM tasks
+                       WHERE user_email = ?1 AND status = 'active'),
+           updated_at = ?2
+       WHERE id = ?3 AND user_email = ?1
+       RETURNING ${TASK_COLUMNS}`,
     )
-    .bind(position, now, taskId, email);
+    .bind(email, now, taskId);
 }
 
+// Условная вставка записи прогресса: строка появляется, ТОЛЬКО если задача ещё
+// active и принадлежит пользователю (TOCTOU — задачу могли завершить в другой
+// вкладке между проверкой и записью, §5). meta.changes=0 сигналит о конфликте.
 export function insertProgressStmt(
   db: D1Database,
   entry: ProgressEntryRow,
@@ -205,9 +218,10 @@ export function insertProgressStmt(
   return db
     .prepare(
       `INSERT INTO progress_entries (id, task_id, user_email, note, created_at)
-       VALUES (?1, ?2, ?3, ?4, ?5)`,
+       SELECT ?1, id, user_email, ?2, ?3 FROM tasks
+       WHERE id = ?4 AND user_email = ?5 AND status = 'active'`,
     )
-    .bind(entry.id, entry.task_id, entry.user_email, entry.note, entry.created_at);
+    .bind(entry.id, entry.note, entry.created_at, entry.task_id, entry.user_email);
 }
 
 // История прогресса задачи, новые сверху.

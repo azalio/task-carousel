@@ -26,7 +26,6 @@ import {
   completeTaskStmt,
   getActiveTasks,
   getLastProgress,
-  getNextActivePosition,
   getSavedCurrentTaskId,
   getTask,
   insertProgressStmt,
@@ -66,13 +65,20 @@ function toTask(row: TaskRow): Task {
   };
 }
 
+// Тело write-запросов читаем только с Content-Type: application/json. Это лишает
+// злоумышленника «simple request» (text/plain без preflight) и заставляет браузер
+// делать preflight, который отклонится отсутствием CORS-заголовков (§13, CSRF).
 async function readJsonBody(
   c: Context<AppEnv>,
-): Promise<{ ok: true; value: unknown } | { ok: false }> {
+): Promise<{ ok: true; value: unknown } | { ok: false; message: string }> {
+  const contentType = c.req.header('Content-Type') ?? '';
+  if (!contentType.toLowerCase().startsWith('application/json')) {
+    return { ok: false, message: 'Ожидается application/json' };
+  }
   try {
     return { ok: true, value: await c.req.json() };
   } catch {
-    return { ok: false };
+    return { ok: false, message: 'Некорректное тело запроса' };
   }
 }
 
@@ -100,19 +106,45 @@ async function buildCurrent(
   };
 }
 
-// Разрешение текущей задачи (§7): невалидная сохранённая → первая активная;
-// если результат отличается от сохранённого — персистим.
+// Разрешение текущей задачи (§7): сохранённая активна → она; была завершена →
+// СЛЕДУЮЩАЯ активная после её позиции (позиция в карусели сохраняется); строки нет
+// вовсе / активных нет → первая активная / null. Если результат отличается от
+// сохранённого — персистим.
 async function resolveAndPersistCurrent(
   db: D1Database,
   email: string,
 ): Promise<{ active: TaskRow[]; currentId: string | null }> {
   const active = sortActive(await getActiveTasks(db, email));
   const savedId = await getSavedCurrentTaskId(db, email);
-  const currentId = resolveCurrentId(active, savedId);
+  const currentId = await resolveCurrentWithNext(db, email, active, savedId);
   if (currentId !== savedId) {
     await setCurrentTaskStmt(db, email, currentId, Date.now()).run();
   }
   return { active, currentId };
+}
+
+// Обёртка над чистой resolveCurrentId (её сигнатуру не трогаем — на ней unit-тесты):
+// если сохранённая задача не среди активных, потому что была завершена, выбираем
+// следующую по позиции через nextAfterComplete вместо возврата к первой (§7).
+async function resolveCurrentWithNext(
+  db: D1Database,
+  email: string,
+  active: readonly TaskRow[],
+  savedId: string | null,
+): Promise<string | null> {
+  const resolved = resolveCurrentId(active, savedId);
+  // resolved === savedId → сохранённая всё ещё активна; активных нет → null;
+  // savedId отсутствует → «следующей после завершённой» нет смысла искать.
+  if (resolved === savedId || savedId === null || active.length === 0) {
+    return resolved;
+  }
+  // savedId задан, но выпал из активных: завершён → следующая по позиции;
+  // строки нет вовсе (или иная причина) → первая активная (resolved).
+  const saved = await getTask(db, email, savedId);
+  if (saved && saved.status === 'completed') {
+    return nextAfterComplete(active, saved.position);
+  }
+  return resolved;
 }
 
 // ---- Middleware ----
@@ -121,6 +153,28 @@ async function resolveAndPersistCurrent(
 app.use('/api/*', async (c, next) => {
   await next();
   setApiResponseHeaders(c.res.headers);
+});
+
+// CSRF-защита мутирующих ручек (§13): cookie CF_Authorization у Access ходит
+// SameSite=None, т.е. отправляется и в cross-site запросах. Отклоняем write, если
+// браузер помечает его как межсайтовый. Не-браузерные вызовы (нет ни Sec-Fetch-Site,
+// ни Origin — curl, тесты) пропускаем.
+const MUTATING_METHODS = new Set(['POST', 'PATCH', 'PUT', 'DELETE']);
+app.use('/api/*', async (c, next) => {
+  if (MUTATING_METHODS.has(c.req.method)) {
+    const secFetchSite = c.req.header('Sec-Fetch-Site');
+    if (secFetchSite !== undefined) {
+      if (secFetchSite !== 'same-origin' && secFetchSite !== 'none') {
+        return jsonError(c, 403, 'INVALID_TOKEN', 'Межсайтовый запрос отклонён');
+      }
+    } else {
+      const origin = c.req.header('Origin');
+      if (origin !== undefined && origin !== new URL(c.req.url).origin) {
+        return jsonError(c, 403, 'INVALID_TOKEN', 'Межсайтовый запрос отклонён');
+      }
+    }
+  }
+  await next();
 });
 
 app.use('/api/*', accessAuth);
@@ -155,25 +209,22 @@ app.get('/api/tasks', async (c) => {
 
 app.post('/api/tasks', async (c) => {
   const body = await readJsonBody(c);
-  if (!body.ok) return jsonError(c, 400, 'VALIDATION_ERROR', 'Некорректное тело запроса');
+  if (!body.ok) return jsonError(c, 400, 'VALIDATION_ERROR', body.message);
   const parsed = validateCreateTask(body.value);
   if (!parsed.ok) return jsonError(c, 400, 'VALIDATION_ERROR', parsed.message);
 
   const email = c.get('userEmail');
   const now = Date.now();
-  const row: TaskRow = {
+  // В конец карусели; позиция вычисляется атомарно внутри INSERT (§4.3, §7).
+  const row = await insertTaskStmt(c.env.DB, {
     id: crypto.randomUUID(),
     user_email: email,
     title: parsed.value.title,
     description: parsed.value.description,
-    status: 'active',
-    // В конец карусели; текущая задача не переключается (§4.3).
-    position: await getNextActivePosition(c.env.DB, email),
     created_at: now,
     updated_at: now,
-    completed_at: null,
-  };
-  await insertTaskStmt(c.env.DB, row).run();
+  }).first<TaskRow>();
+  if (!row) return jsonError(c, 500, 'INTERNAL_ERROR', 'Не удалось создать задачу');
   return c.json(toTask(row), 201);
 });
 
@@ -183,7 +234,7 @@ app.patch('/api/tasks/:taskId', async (c) => {
   if (!task) return jsonError(c, 404, 'NOT_FOUND', 'Задача не найдена');
 
   const body = await readJsonBody(c);
-  if (!body.ok) return jsonError(c, 400, 'VALIDATION_ERROR', 'Некорректное тело запроса');
+  if (!body.ok) return jsonError(c, 400, 'VALIDATION_ERROR', body.message);
   const parsed = validateUpdateTask(body.value);
   if (!parsed.ok) return jsonError(c, 400, 'VALIDATION_ERROR', parsed.message);
 
@@ -208,7 +259,7 @@ app.get('/api/carousel/current', async (c) => {
 
 app.post('/api/carousel/move', async (c) => {
   const body = await readJsonBody(c);
-  if (!body.ok) return jsonError(c, 400, 'VALIDATION_ERROR', 'Некорректное тело запроса');
+  if (!body.ok) return jsonError(c, 400, 'VALIDATION_ERROR', body.message);
   const direction = validateMove(body.value);
   if (!direction.ok) return jsonError(c, 400, 'VALIDATION_ERROR', direction.message);
 
@@ -224,7 +275,7 @@ app.post('/api/carousel/move', async (c) => {
 
 app.post('/api/carousel/select', async (c) => {
   const body = await readJsonBody(c);
-  if (!body.ok) return jsonError(c, 400, 'VALIDATION_ERROR', 'Некорректное тело запроса');
+  if (!body.ok) return jsonError(c, 400, 'VALIDATION_ERROR', body.message);
   const selected = validateSelect(body.value);
   if (!selected.ok) return jsonError(c, 400, 'VALIDATION_ERROR', selected.message);
 
@@ -232,12 +283,16 @@ app.post('/api/carousel/select', async (c) => {
   const email = c.get('userEmail');
   const task = await getTask(db, email, selected.value);
   if (!task) return jsonError(c, 404, 'NOT_FOUND', 'Задача не найдена');
-  if (task.status !== 'active') {
-    return jsonError(c, 409, 'CONFLICT', 'Завершённую задачу нельзя открыть в карусели');
+
+  // Снапшот активных читаем ДО переключения и валидируем выбранный id по нему:
+  // задачу могли завершить в другой вкладке между getTask и getActiveTasks —
+  // тогда её нет в снапшоте и buildCurrent показал бы чужую (§7, гонка).
+  const active = sortActive(await getActiveTasks(db, email));
+  if (!active.some((t) => t.id === task.id)) {
+    return jsonError(c, 409, 'CONFLICT', 'Нельзя открыть завершённую задачу');
   }
 
   await setCurrentTaskStmt(db, email, task.id, Date.now()).run();
-  const active = sortActive(await getActiveTasks(db, email));
   return c.json(await buildCurrent(db, active, task.id), 200);
 });
 
@@ -251,7 +306,7 @@ app.post('/api/tasks/:taskId/check-in', async (c) => {
   if (task.status !== 'active') return jsonError(c, 409, 'CONFLICT', 'Задача уже завершена');
 
   const body = await readJsonBody(c);
-  if (!body.ok) return jsonError(c, 400, 'VALIDATION_ERROR', 'Некорректное тело запроса');
+  if (!body.ok) return jsonError(c, 400, 'VALIDATION_ERROR', body.message);
   const note = validateCheckIn(body.value);
   if (!note.ok) return jsonError(c, 400, 'VALIDATION_ERROR', note.message);
 
@@ -263,9 +318,18 @@ app.post('/api/tasks/:taskId/check-in', async (c) => {
     note: note.value,
     created_at: now,
   };
+  // Условная вставка: строка появится, только если задача всё ещё active. Задачу
+  // могли завершить в другой вкладке между проверкой статуса и записью (TOCTOU) —
+  // тогда changes=0, отвечаем 409 и НЕ трогаем карусель (§5).
+  const insertResult = await insertProgressStmt(db, entryRow).run();
+  if (insertResult.meta.changes === 0) {
+    return jsonError(c, 409, 'CONFLICT', 'Задача уже завершена');
+  }
+
+  // Карусель переключаем только после подтверждённой записи прогресса.
   const active = sortActive(await getActiveTasks(db, email));
   const nextId = nextAfterCheckIn(active, task.id);
-  await db.batch([insertProgressStmt(db, entryRow), setCurrentTaskStmt(db, email, nextId, now)]);
+  await setCurrentTaskStmt(db, email, nextId, now).run();
 
   const response: CheckInResponse = {
     entry: {
@@ -307,13 +371,14 @@ app.post('/api/tasks/:taskId/reopen', async (c) => {
   if (task.status !== 'completed') return jsonError(c, 409, 'CONFLICT', 'Задача уже в работе');
 
   const now = Date.now();
-  // В конец карусели (§6); текущую задачу не переключаем.
-  const position = await getNextActivePosition(db, email);
-  await reopenTaskStmt(db, email, task.id, position, now).run();
+  // В конец карусели (§6); позиция вычисляется атомарно внутри UPDATE. Текущую
+  // задачу не переключаем.
+  const reopened = await reopenTaskStmt(db, email, task.id, now).first<TaskRow>();
+  if (!reopened) return jsonError(c, 500, 'INTERNAL_ERROR', 'Не удалось вернуть задачу');
 
   const { active, currentId } = await resolveAndPersistCurrent(db, email);
   const response: ReopenResponse = {
-    task: { ...toTask(task), status: 'active', completedAt: null, position, updatedAt: now },
+    task: toTask(reopened),
     current: await buildCurrent(db, active, currentId),
   };
   return c.json(response, 200);
@@ -338,8 +403,13 @@ app.get('/api/tasks/:taskId/progress', async (c) => {
 // Неизвестные /api-маршруты — 404 в едином формате, а не SPA-fallback.
 app.all('/api/*', (c) => jsonError(c, 404, 'NOT_FOUND', 'Маршрут не найден'));
 
-// Всё остальное — статика через ASSETS с security-заголовками (§13).
-app.all('*', async (c) => withAssetSecurityHeaders(await c.env.ASSETS.fetch(c.req.raw)));
+// Всё остальное — статика через ASSETS с security-заголовками (§13). В dev (наличие
+// DEV_AUTH_EMAIL, как в auth.ts) отдаём CSP, совместимую с Vite HMR; в prod — строгую.
+app.all('*', async (c) => {
+  const devEmail = c.env.DEV_AUTH_EMAIL;
+  const isDev = devEmail !== undefined && devEmail.trim() !== '';
+  return withAssetSecurityHeaders(await c.env.ASSETS.fetch(c.req.raw), isDev);
+});
 
 app.onError((err, c) => {
   // Детали наружу не отдаём; тексты записей и JWT сюда не попадают.

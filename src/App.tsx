@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { CarouselCurrent, MeResponse } from '../shared/types';
 import { api, errorMessage } from './api';
 import { TaskForm } from './components/TaskForm';
@@ -24,6 +24,16 @@ export default function App() {
   const [toast, setToast] = useState<ToastData | null>(null);
   const online = useOnline();
 
+  // Монотонный guard для current: каждое прямое пользовательское изменение
+  // (move/checkin/complete/открыть из списка) бампает seq. Фоновые обновления
+  // (refreshCurrent, undo) захватывают seq до запроса и применяют результат,
+  // только если с тех пор current не менялся — иначе устаревший GET отбрасывается.
+  const currentSeq = useRef(0);
+  const applyCurrent = useCallback((next: CarouselCurrent) => {
+    currentSeq.current += 1;
+    setCurrent(next);
+  }, []);
+
   const showToast = useCallback((message: string, action?: ToastAction) => {
     setToast({ id: Date.now(), message, action });
   }, []);
@@ -46,8 +56,13 @@ export default function App() {
   }, [loadInitial]);
 
   const refreshCurrent = useCallback(async () => {
+    const seq = currentSeq.current;
     try {
-      setCurrent(await api.carouselCurrent());
+      const carousel = await api.carouselCurrent();
+      // За время запроса пользователь мог изменить current (move/checkin/...) —
+      // тогда наш GET устарел и его нельзя применять.
+      if (seq !== currentSeq.current) return;
+      setCurrent(carousel);
     } catch (err) {
       showToast(errorMessage(err));
     }
@@ -109,7 +124,8 @@ export default function App() {
           current={current}
           email={me?.email ?? null}
           online={online}
-          onCurrentChange={setCurrent}
+          onCurrentChange={applyCurrent}
+          onReloadCurrent={refreshCurrent}
           onOpenTasks={(tab) => setView({ name: 'tasks', tab })}
           onOpenHistory={(taskId, taskTitle) => setView({ name: 'history', taskId, taskTitle })}
           onOpenCreate={() => setCreateOpen(true)}
@@ -123,7 +139,7 @@ export default function App() {
           online={online}
           onBack={backToCarousel}
           onOpenInCarousel={(carousel) => {
-            setCurrent(carousel);
+            applyCurrent(carousel);
             setView({ name: 'carousel' });
           }}
           onToast={showToast}
