@@ -1,24 +1,52 @@
-/* Task Carousel — стили (§8): mobile-first от 320px, 100dvh, safe-area,
-   интерактивные элементы >= 44x44, анимации <= 150ms. */
+/* Task Carousel — нативный iOS-язык (Apple HIG).
+   Сохраняет требования §8: mobile-first от 320px, 100dvh, safe-area,
+   интерактивные элементы >= 44x44, все анимации <= 150ms, reduced-motion.
+   Только системный шрифт (CSP font-src наследует default-src 'self' —
+   внешних шрифтов нет; на Apple это и есть SF). */
 
 :root {
-  --color-bg: #eef1f7;
-  --color-surface: #ffffff;
-  --color-surface-muted: #f4f6fb;
-  --color-text: #1a2233;
-  --color-text-muted: #5b6478;
-  --color-border: #d7dce8;
-  --color-primary: #4f46e5;
-  --color-primary-active: #4338ca;
-  --color-primary-contrast: #ffffff;
-  --color-danger: #b3261e;
-  --color-toast-bg: #232a3b;
-  --color-toast-action: #a5b4fc;
-  --color-offline-bg: #b45309;
+  color-scheme: light dark;
 
-  --radius-s: 8px;
-  --radius-m: 12px;
-  --radius-l: 16px;
+  /* iOS system colors — light */
+  --tint: #007aff;
+  --tint-active: #0063cc;
+  --tint-contrast: #ffffff;
+
+  --bg: #f2f2f7; /* systemGroupedBackground */
+  --surface: #ffffff; /* secondarySystemGroupedBackground */
+  --fill-secondary: rgba(120, 120, 128, 0.16); /* secondarySystemFill */
+  --fill-tertiary: rgba(118, 118, 128, 0.1); /* tertiarySystemFill */
+  --fill-quaternary: rgba(116, 116, 128, 0.08);
+
+  --label: #1c1c1e;
+  --label-secondary: rgba(60, 60, 67, 0.6);
+  --label-tertiary: rgba(60, 60, 67, 0.3);
+
+  --separator: rgba(60, 60, 67, 0.29);
+  --separator-opaque: #c6c6c8;
+
+  --danger: #ff3b30;
+
+  /* Полупрозрачные материалы навигации (как iOS bars) */
+  --material-bar: rgba(249, 249, 251, 0.8);
+  --material-bar-solid: #f7f7fa;
+  --scrim: rgba(0, 0, 0, 0.4);
+
+  --btn-secondary-bg: #e9e9ec; /* systemGray5-ish */
+  --btn-secondary-active: #dcdce0;
+
+  --toast-bg: rgba(38, 38, 41, 0.92);
+  --toast-text: #ffffff;
+  --toast-action: #4aa8ff;
+
+  --offline-bg: #ff9f0a; /* systemOrange */
+  --offline-text: #2b1a00;
+
+  --radius-card: 12px;
+  --radius-btn: 12px;
+  --radius-field: 10px;
+  --radius-sheet: 16px;
+  --radius-small: 8px;
 
   --space-1: 4px;
   --space-2: 8px;
@@ -28,14 +56,64 @@
   --space-6: 32px;
 
   --shadow-card:
-    0 1px 3px rgba(20, 27, 45, 0.1),
-    0 4px 16px rgba(20, 27, 45, 0.08);
+    0 0 0 0.5px rgba(0, 0, 0, 0.04),
+    0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-pop:
+    0 0 0 0.5px rgba(0, 0, 0, 0.06),
+    0 8px 28px rgba(0, 0, 0, 0.18);
+  --shadow-segment: 0 1px 3px rgba(0, 0, 0, 0.12);
 
   --font-family:
-    system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro', system-ui,
+    'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 
+  /* Все переходы держим в пределах §8 (<= 150ms) */
   --duration-fast: 120ms;
-  --duration-card: 140ms;
+  --duration-card: 150ms;
+  --ease-out: cubic-bezier(0.32, 0.72, 0, 1); /* iOS-подобный ease-out */
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --tint: #0a84ff;
+    --tint-active: #409cff;
+
+    --bg: #000000;
+    --surface: #1c1c1e;
+    --fill-secondary: rgba(120, 120, 128, 0.32);
+    --fill-tertiary: rgba(118, 118, 128, 0.24);
+    --fill-quaternary: rgba(118, 118, 128, 0.18);
+
+    --label: #ffffff;
+    --label-secondary: rgba(235, 235, 245, 0.6);
+    --label-tertiary: rgba(235, 235, 245, 0.3);
+
+    --separator: rgba(84, 84, 88, 0.6);
+    --separator-opaque: #38383a;
+
+    --danger: #ff453a;
+
+    --material-bar: rgba(30, 30, 32, 0.72);
+    --material-bar-solid: #1a1a1c;
+    --scrim: rgba(0, 0, 0, 0.6);
+
+    --btn-secondary-bg: #2c2c2e;
+    --btn-secondary-active: #3a3a3c;
+
+    --toast-bg: rgba(58, 58, 60, 0.94);
+    --toast-action: #64b5ff;
+
+    --offline-bg: #ff9f0a;
+    --offline-text: #2b1a00;
+
+    --shadow-card:
+      0 0 0 0.5px rgba(255, 255, 255, 0.06),
+      0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-pop:
+      0 0 0 0.5px rgba(255, 255, 255, 0.08),
+      0 10px 30px rgba(0, 0, 0, 0.5);
+    --shadow-segment: 0 1px 3px rgba(0, 0, 0, 0.4);
+  }
 }
 
 * {
@@ -51,12 +129,16 @@ body {
 
 body {
   font-family: var(--font-family);
-  background: var(--color-bg);
-  color: var(--color-text);
-  font-size: 16px;
+  background: var(--bg);
+  color: var(--label);
+  font-size: 17px; /* iOS body */
   line-height: 1.45;
+  letter-spacing: -0.01em;
   -webkit-font-smoothing: antialiased;
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
   overscroll-behavior-y: none;
+  font-synthesis: none;
 }
 
 .app {
@@ -73,29 +155,44 @@ body {
   min-height: 0;
 }
 
-/* ---- Шапка ---- */
+/* ---- Навигационная шапка (iOS nav bar) ---- */
 
 .app-header {
+  position: relative;
+  z-index: 10;
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  padding: calc(var(--space-2) + env(safe-area-inset-top)) var(--space-3) var(--space-2);
+  padding: calc(var(--space-2) + env(safe-area-inset-top)) var(--space-2) var(--space-2);
   flex: 0 0 auto;
+  background: var(--material-bar);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(20px);
+  border-bottom: 0.5px solid var(--separator);
 }
 
 .app-title {
   flex: 1;
   margin: 0;
   font-size: 17px;
-  font-weight: 700;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  text-align: center;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
+/* Заголовок центрирован (iOS): по краям — иконки одинаковой ширины.
+   Когда слева иконки нет, компенсируем правые кнопки, чтобы не съезжал. */
+.app-header > .app-title:first-child {
+  text-align: left;
+  padding-left: var(--space-2);
+}
+
 .header-actions {
   display: flex;
-  gap: var(--space-2);
+  gap: var(--space-1);
 }
 
 .icon-btn {
@@ -107,17 +204,19 @@ body {
   flex: 0 0 auto;
   border: none;
   background: transparent;
-  border-radius: var(--radius-m);
-  color: var(--color-text);
+  border-radius: var(--radius-btn);
+  color: var(--tint);
   cursor: pointer;
-  transition: background-color var(--duration-fast) ease;
+  transition:
+    background-color var(--duration-fast) ease,
+    opacity var(--duration-fast) ease;
 }
 
 .icon-btn:active {
-  background: rgba(26, 34, 51, 0.08);
+  opacity: 0.4;
 }
 
-/* ---- Меню пользователя ---- */
+/* ---- Меню пользователя (iOS context menu) ---- */
 
 .user-menu {
   position: relative;
@@ -135,23 +234,37 @@ body {
 
 .menu-panel {
   position: absolute;
-  top: calc(100% + 4px);
+  top: calc(100% + 6px);
   right: 0;
-  min-width: 220px;
+  min-width: 240px;
   max-width: 80vw;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-m);
-  box-shadow: var(--shadow-card);
-  padding: var(--space-2) 0;
+  background: var(--surface);
+  border: 0.5px solid var(--separator);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-pop);
+  padding: var(--space-1) 0;
   z-index: 31;
+  overflow: hidden;
+  transform-origin: top right;
+  animation: menu-in var(--duration-fast) var(--ease-out);
+}
+
+@keyframes menu-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 .menu-email {
   padding: var(--space-2) var(--space-4) var(--space-3);
-  color: var(--color-text-muted);
+  color: var(--label-secondary);
   font-size: 13px;
-  border-bottom: 1px solid var(--color-border);
+  border-bottom: 0.5px solid var(--separator);
   margin-bottom: var(--space-1);
   word-break: break-all;
 }
@@ -164,15 +277,15 @@ body {
   background: none;
   border: none;
   text-align: left;
-  font-size: 15px;
+  font-size: 16px;
   font-family: inherit;
-  color: var(--color-text);
+  color: var(--label);
   cursor: pointer;
 }
 
 .menu-item:hover,
 .menu-item:active {
-  background: var(--color-surface-muted);
+  background: var(--fill-tertiary);
 }
 
 /* ---- Карусель ---- */
@@ -180,8 +293,12 @@ body {
 .carousel-indicator {
   margin: 0;
   text-align: center;
-  color: var(--color-text-muted);
-  font-size: 14px;
+  color: var(--label-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+  padding: var(--space-3) 0 var(--space-1);
   flex: 0 0 auto;
 }
 
@@ -190,6 +307,7 @@ body {
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   padding: var(--space-3) var(--space-4) var(--space-4);
 }
 
@@ -197,16 +315,19 @@ body {
   width: 100%;
   max-width: 560px;
   margin: 0 auto;
-  background: var(--color-surface);
-  border-radius: var(--radius-l);
+  background: var(--surface);
+  border-radius: var(--radius-card);
   box-shadow: var(--shadow-card);
-  padding: var(--space-4);
+  padding: var(--space-4) var(--space-4) var(--space-2);
 }
 
 .task-title {
   margin: 0 0 var(--space-2);
-  font-size: 22px;
-  line-height: 1.25;
+  font-size: 26px; /* iOS title */
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
   overflow-wrap: anywhere;
 }
 
@@ -214,19 +335,23 @@ body {
   margin: 0 0 var(--space-4);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  color: var(--color-text);
+  color: var(--label-secondary);
+  line-height: 1.4;
 }
 
 .last-progress {
-  background: var(--color-surface-muted);
-  border-radius: var(--radius-m);
+  background: var(--fill-quaternary);
+  border-radius: var(--radius-field);
   padding: var(--space-3);
 }
 
 .last-progress-label {
   margin: 0 0 var(--space-1);
   font-size: 12px;
-  color: var(--color-text-muted);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--label-secondary);
 }
 
 .last-progress-note {
@@ -238,13 +363,14 @@ body {
 .last-progress-time {
   margin: var(--space-1) 0 0;
   font-size: 13px;
-  color: var(--color-text-muted);
+  color: var(--label-secondary);
+  font-variant-numeric: tabular-nums;
 }
 
 .last-progress-empty {
   margin: 0;
-  color: var(--color-text-muted);
-  font-size: 14px;
+  color: var(--label-tertiary);
+  font-size: 15px;
 }
 
 .link-btn {
@@ -255,30 +381,31 @@ body {
   padding: 0;
   background: none;
   border: none;
-  color: var(--color-primary);
-  font-size: 15px;
+  color: var(--tint);
+  font-size: 16px;
   font-family: inherit;
   cursor: pointer;
+  transition: opacity var(--duration-fast) ease;
 }
 
 .link-btn:active {
-  color: var(--color-primary-active);
+  opacity: 0.4;
 }
 
-/* Анимация переключения карточки: <= 150ms (§8). */
+/* Переключение карточки: горизонтальный сдвиг, <= 150ms (§8). */
 
 .card-enter-next {
-  animation: card-next var(--duration-card) ease-out;
+  animation: card-next var(--duration-card) var(--ease-out);
 }
 
 .card-enter-prev {
-  animation: card-prev var(--duration-card) ease-out;
+  animation: card-prev var(--duration-card) var(--ease-out);
 }
 
 @keyframes card-next {
   from {
-    opacity: 0.3;
-    transform: translateX(28px);
+    opacity: 0.5;
+    transform: translate3d(24px, 0, 0);
   }
   to {
     opacity: 1;
@@ -288,8 +415,8 @@ body {
 
 @keyframes card-prev {
   from {
-    opacity: 0.3;
-    transform: translateX(-28px);
+    opacity: 0.5;
+    transform: translate3d(-24px, 0, 0);
   }
   to {
     opacity: 1;
@@ -314,21 +441,23 @@ body {
     width: 44px;
     height: 44px;
     border-radius: 50%;
-    border: 1px solid var(--color-border);
-    background: var(--color-surface);
-    color: var(--color-text);
+    border: 0.5px solid var(--separator);
+    background: var(--surface);
+    color: var(--tint);
     box-shadow: var(--shadow-card);
     cursor: pointer;
     z-index: 5;
-    transition: background-color var(--duration-fast) ease;
+    transition:
+      transform var(--duration-fast) ease,
+      opacity var(--duration-fast) ease;
   }
 
   .arrow-btn:not(:disabled):active {
-    background: var(--color-surface-muted);
+    transform: translateY(-50%) scale(0.92);
   }
 
   .arrow-btn:disabled {
-    opacity: 0.45;
+    opacity: 0.35;
     cursor: default;
   }
 
@@ -341,7 +470,7 @@ body {
   }
 }
 
-/* ---- Нижняя панель действий ---- */
+/* ---- Нижняя панель действий (iOS translucent toolbar) ---- */
 
 .action-panel {
   flex: 0 0 auto;
@@ -349,8 +478,10 @@ body {
   flex-direction: column;
   align-items: center;
   gap: var(--space-2);
-  background: var(--color-surface);
-  border-top: 1px solid var(--color-border);
+  background: var(--material-bar);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(20px);
+  border-top: 0.5px solid var(--separator);
   padding: var(--space-3) var(--space-4) calc(var(--space-3) + env(safe-area-inset-bottom));
 }
 
@@ -360,72 +491,86 @@ body {
 }
 
 .note-input {
-  min-height: 72px;
+  min-height: 76px;
   resize: vertical;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-m);
+  border: 0.5px solid var(--separator);
+  border-radius: var(--radius-field);
   padding: var(--space-3);
   font-family: inherit;
-  font-size: 16px; /* < 16px вызывает авто-зум в iOS Safari */
+  font-size: 17px; /* >= 16px: без авто-зума в iOS Safari */
   line-height: 1.4;
-  background: var(--color-surface);
-  color: var(--color-text);
+  background: var(--surface);
+  color: var(--label);
+  transition:
+    border-color var(--duration-fast) ease,
+    box-shadow var(--duration-fast) ease;
+}
+
+.note-input::placeholder {
+  color: var(--label-tertiary);
 }
 
 .note-input:focus-visible {
-  outline: 2px solid var(--color-primary);
-  outline-offset: 1px;
-  border-color: var(--color-primary);
+  outline: none;
+  border-color: var(--tint);
+  box-shadow: 0 0 0 3.5px color-mix(in srgb, var(--tint) 22%, transparent);
 }
 
 .note-input:disabled {
   opacity: 0.6;
 }
 
-/* ---- Кнопки ---- */
+/* ---- Кнопки (iOS filled / gray) ---- */
 
 .btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 48px;
+  min-height: 50px;
   padding: var(--space-2) var(--space-4);
   border: none;
-  border-radius: var(--radius-m);
-  font-size: 16px;
+  border-radius: var(--radius-btn);
+  font-size: 17px;
   font-weight: 600;
+  letter-spacing: -0.01em;
   font-family: inherit;
   cursor: pointer;
   transition:
     background-color var(--duration-fast) ease,
-    transform 80ms ease;
+    transform var(--duration-fast) var(--ease-out),
+    opacity var(--duration-fast) ease;
 }
 
 .btn:disabled {
-  opacity: 0.55;
+  opacity: 0.45;
   cursor: default;
 }
 
 .btn:not(:disabled):active {
-  transform: scale(0.98);
+  transform: scale(0.97);
 }
 
 .btn-primary {
-  background: var(--color-primary);
-  color: var(--color-primary-contrast);
+  background: var(--tint);
+  color: var(--tint-contrast);
 }
 
 .btn-primary:not(:disabled):active {
-  background: var(--color-primary-active);
+  background: var(--tint-active);
 }
 
 .btn-secondary {
-  background: #e7eaf3;
-  color: var(--color-text);
+  background: var(--btn-secondary-bg);
+  color: var(--tint);
 }
 
 .btn-secondary:not(:disabled):active {
-  background: #d9def0;
+  background: var(--btn-secondary-active);
+}
+
+.btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3.5px color-mix(in srgb, var(--tint) 30%, transparent);
 }
 
 .btn-row {
@@ -439,7 +584,8 @@ body {
 
 .btn-small {
   min-height: 44px;
-  font-size: 14px;
+  font-size: 15px;
+  font-weight: 500;
   padding: var(--space-1) var(--space-3);
 }
 
@@ -447,20 +593,21 @@ body {
 
 .inline-error {
   margin: 0;
-  color: var(--color-danger);
+  color: var(--danger);
   font-size: 14px;
 }
 
 .muted {
-  color: var(--color-text-muted);
+  color: var(--label-secondary);
 }
 
 .offline-banner {
   flex: 0 0 auto;
-  background: var(--color-offline-bg);
-  color: #ffffff;
+  background: var(--offline-bg);
+  color: var(--offline-text);
   text-align: center;
   font-size: 14px;
+  font-weight: 600;
   padding: calc(var(--space-2) + env(safe-area-inset-top)) var(--space-4) var(--space-2);
 }
 
@@ -474,7 +621,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--color-text-muted);
+  color: var(--label-secondary);
 }
 
 /* ---- Пустые состояния ---- */
@@ -492,13 +639,17 @@ body {
 
 .empty-title {
   margin: 0;
-  font-size: 22px;
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
 }
 
 .empty-hint {
   margin: 0;
-  color: var(--color-text-muted);
+  color: var(--label-secondary);
   max-width: 420px;
+  text-wrap: pretty;
 }
 
 .empty-state .btn {
@@ -506,40 +657,48 @@ body {
   max-width: 320px;
 }
 
-/* ---- Вкладки (экран всех задач) ---- */
+/* ---- Segmented control (вкладки экрана задач) ---- */
 
 .tabs {
   flex: 0 0 auto;
   display: flex;
-  gap: var(--space-2);
-  padding: 0 var(--space-4);
-  border-bottom: 1px solid var(--color-border);
+  gap: 2px;
+  margin: var(--space-3) var(--space-4) var(--space-1);
+  padding: 2px;
+  background: var(--fill-tertiary);
+  border-radius: var(--radius-field);
 }
 
 .tab {
   flex: 1;
-  min-height: 44px;
+  min-height: 44px; /* §8: тап-таргет >= 44px (чуть выше нативного сегмента) */
   background: none;
   border: none;
-  border-bottom: 2px solid transparent;
-  color: var(--color-text-muted);
-  font-size: 15px;
+  border-radius: 8px;
+  color: var(--label);
+  font-size: 14px;
   font-weight: 600;
+  letter-spacing: -0.01em;
   font-family: inherit;
   cursor: pointer;
+  transition:
+    background-color var(--duration-fast) ease,
+    color var(--duration-fast) ease;
 }
 
 .tab-active {
-  color: var(--color-primary);
-  border-bottom-color: var(--color-primary);
+  color: var(--label);
+  background: var(--surface);
+  box-shadow: var(--shadow-segment);
 }
 
-/* ---- Списки задач и истории ---- */
+/* ---- Списки задач и истории (iOS inset grouped) ---- */
 
 .task-list {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   list-style: none;
   margin: 0;
   padding: var(--space-3) var(--space-4) calc(var(--space-4) + env(safe-area-inset-bottom));
@@ -552,8 +711,8 @@ body {
   width: 100%;
   max-width: 640px;
   margin: 0 auto;
-  background: var(--color-surface);
-  border-radius: var(--radius-l);
+  background: var(--surface);
+  border-radius: var(--radius-card);
   box-shadow: var(--shadow-card);
   padding: var(--space-4);
 }
@@ -561,23 +720,27 @@ body {
 .task-item-title {
   margin: 0 0 var(--space-1);
   font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
   overflow-wrap: anywhere;
 }
 
 .task-item-description {
   margin: 0 0 var(--space-2);
-  color: var(--color-text-muted);
+  color: var(--label-secondary);
   overflow: hidden;
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow-wrap: anywhere;
 }
 
 .task-item-meta {
   margin: 0 0 var(--space-3);
-  color: var(--color-text-muted);
+  color: var(--label-secondary);
   font-size: 13px;
+  font-variant-numeric: tabular-nums;
 }
 
 .task-item-actions {
@@ -592,15 +755,16 @@ body {
 
 .list-empty {
   text-align: center;
-  padding: var(--space-5) 0;
+  padding: var(--space-6) 0;
+  color: var(--label-secondary);
 }
 
 .history-subtitle {
   flex: 0 0 auto;
   margin: 0;
-  padding: 0 var(--space-4) var(--space-2);
-  color: var(--color-text-muted);
-  font-size: 14px;
+  padding: var(--space-1) var(--space-4) var(--space-2);
+  color: var(--label-secondary);
+  font-size: 15px;
   overflow-wrap: anywhere;
 }
 
@@ -612,8 +776,9 @@ body {
 
 .entry-time {
   margin: 0;
-  color: var(--color-text-muted);
+  color: var(--label-secondary);
   font-size: 13px;
+  font-variant-numeric: tabular-nums;
 }
 
 /* ---- Модальная форма: bottom sheet -> dialog (§4.3) ---- */
@@ -621,27 +786,53 @@ body {
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(18, 23, 38, 0.5);
+  background: var(--scrim);
   display: flex;
   align-items: flex-end;
   justify-content: center;
   z-index: 40;
+  animation: overlay-in var(--duration-fast) ease;
+}
+
+@keyframes overlay-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 .modal {
+  position: relative;
   width: 100%;
-  max-height: 90dvh;
+  max-height: 92dvh;
   overflow-y: auto;
-  background: var(--color-surface);
-  border-radius: var(--radius-l) var(--radius-l) 0 0;
-  padding: var(--space-4) var(--space-4) calc(var(--space-4) + env(safe-area-inset-bottom));
-  animation: sheet-in var(--duration-card) ease-out;
+  -webkit-overflow-scrolling: touch;
+  background: var(--surface);
+  border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
+  padding: var(--space-5) var(--space-4) calc(var(--space-4) + env(safe-area-inset-bottom));
+  box-shadow: var(--shadow-pop);
+  animation: sheet-in var(--duration-card) var(--ease-out);
+}
+
+/* Grabber — «ручка» листа (iOS) */
+.modal::before {
+  content: '';
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  width: 36px;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--label-tertiary);
+  transform: translateX(-50%);
 }
 
 @keyframes sheet-in {
   from {
-    opacity: 0.5;
-    transform: translateY(24px);
+    opacity: 0.6;
+    transform: translate3d(0, 24px, 0);
   }
   to {
     opacity: 1;
@@ -668,15 +859,24 @@ body {
 
   .modal {
     width: 480px;
-    border-radius: var(--radius-l);
+    border-radius: var(--radius-sheet);
+    padding-top: var(--space-4);
     padding-bottom: var(--space-4);
     animation-name: dialog-in;
+  }
+
+  /* На desktop-диалоге grabber не нужен */
+  .modal::before {
+    display: none;
   }
 }
 
 .modal-title {
   margin: 0 0 var(--space-4);
-  font-size: 19px;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  text-align: center;
 }
 
 .field {
@@ -686,22 +886,33 @@ body {
 
 .field-label {
   display: block;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
-  margin-bottom: var(--space-1);
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+  color: var(--label-secondary);
+  margin-bottom: var(--space-2);
+  padding-left: var(--space-1);
 }
 
 .field-input {
   width: 100%;
   min-height: 44px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-m);
-  padding: var(--space-2) var(--space-3);
-  font-size: 16px;
+  border: 0.5px solid var(--separator);
+  border-radius: var(--radius-field);
+  padding: var(--space-3);
+  font-size: 17px;
   font-family: inherit;
   line-height: 1.4;
-  background: var(--color-surface);
-  color: var(--color-text);
+  background: var(--surface);
+  color: var(--label);
+  transition:
+    border-color var(--duration-fast) ease,
+    box-shadow var(--duration-fast) ease;
+}
+
+.field-input::placeholder {
+  color: var(--label-tertiary);
 }
 
 textarea.field-input {
@@ -709,27 +920,30 @@ textarea.field-input {
 }
 
 .field-input:focus-visible {
-  outline: 2px solid var(--color-primary);
-  outline-offset: 1px;
-  border-color: var(--color-primary);
+  outline: none;
+  border-color: var(--tint);
+  box-shadow: 0 0 0 3.5px color-mix(in srgb, var(--tint) 22%, transparent);
 }
 
-.input-invalid {
-  border-color: var(--color-danger);
+.input-invalid,
+.input-invalid:focus-visible {
+  border-color: var(--danger);
+  box-shadow: 0 0 0 3.5px color-mix(in srgb, var(--danger) 20%, transparent);
 }
 
 .field-error {
   display: block;
-  margin-top: var(--space-1);
-  color: var(--color-danger);
+  margin-top: var(--space-2);
+  padding-left: var(--space-1);
+  color: var(--danger);
   font-size: 13px;
 }
 
 .form-actions {
-  margin-top: var(--space-4);
+  margin-top: var(--space-5);
 }
 
-/* ---- Toast ---- */
+/* ---- Toast (iOS-капсула) ---- */
 
 .toast {
   position: fixed;
@@ -742,19 +956,21 @@ textarea.field-input {
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
-  background: var(--color-toast-bg);
-  color: #ffffff;
-  border-radius: var(--radius-m);
-  padding: var(--space-2) var(--space-4);
-  box-shadow: var(--shadow-card);
+  background: var(--toast-bg);
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
+  color: var(--toast-text);
+  border-radius: 14px;
+  padding: var(--space-3) var(--space-4);
+  box-shadow: var(--shadow-pop);
   z-index: 50;
-  animation: toast-in var(--duration-fast) ease-out;
+  animation: toast-in var(--duration-card) var(--ease-out);
 }
 
 @keyframes toast-in {
   from {
     opacity: 0;
-    transform: translateY(8px);
+    transform: translate3d(0, 12px, 0);
   }
   to {
     opacity: 1;
@@ -764,6 +980,7 @@ textarea.field-input {
 
 .toast-message {
   font-size: 15px;
+  font-weight: 500;
 }
 
 .toast-action {
@@ -772,11 +989,16 @@ textarea.field-input {
   padding: 0 var(--space-2);
   background: none;
   border: none;
-  color: var(--color-toast-action);
-  font-size: 15px;
-  font-weight: 700;
+  color: var(--toast-action);
+  font-size: 16px;
+  font-weight: 600;
   font-family: inherit;
   cursor: pointer;
+  transition: opacity var(--duration-fast) ease;
+}
+
+.toast-action:active {
+  opacity: 0.5;
 }
 
 /* ---- Landscape на невысоких экранах ---- */
@@ -787,11 +1009,32 @@ textarea.field-input {
   }
 
   .task-title {
-    font-size: 18px;
+    font-size: 20px;
   }
 
   .btn {
     min-height: 44px;
+  }
+
+  .carousel-indicator {
+    padding: var(--space-1) 0;
+  }
+}
+
+/* ---- Reduced transparency: непрозрачные бары вместо блюра ---- */
+
+@media (prefers-reduced-transparency: reduce) {
+  .app-header,
+  .action-panel {
+    background: var(--material-bar-solid);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  .toast {
+    background: var(--toast-bg);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
   }
 }
 
