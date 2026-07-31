@@ -1,0 +1,39 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "task-carousel",
+  "main": "worker/index.ts",
+  "compatibility_date": "2026-07-01",
+  "compatibility_flags": ["nodejs_compat"],
+  // Статика собирается Vite-плагином; все запросы идут через Worker,
+  // чтобы навесить CSP и остальные security-заголовки на HTML/ассеты.
+  "assets": {
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": true
+  },
+  // Никаких workers.dev / preview URL: приложение живёт только за
+  // Cloudflare Access на todo.azalio.net (см. docs/design.md §3).
+  "workers_dev": false,
+  "preview_urls": false,
+  "routes": [
+    { "pattern": "todo.azalio.net", "custom_domain": true }
+  ],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "task-carousel-db",
+      "database_id": "66f29753-cee0-46de-8d7a-d3afb34f595b",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "vars": {
+    // Заполняются при деплое: team-домен Zero Trust и AUD-тег Access-приложения.
+    "ACCESS_TEAM_DOMAIN": "azalio.cloudflareaccess.com",
+    "ACCESS_AUD": "bf7773acedbe72e8e98503976f2e5b446b4d97c053a2e4bd1bb0b8ec480edb05"
+    // DEV_AUTH_EMAIL задаётся ТОЛЬКО в .dev.vars для локальной разработки.
+    // В production его быть не должно — иначе auth выключен.
+  },
+  "observability": {
+    "enabled": true
+  }
+}

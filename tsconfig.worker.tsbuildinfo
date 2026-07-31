@@ -1,0 +1,1 @@
+{"root":["./worker/auth.ts","./worker/carousel.ts","./worker/db.ts","./worker/env.ts","./worker/http.ts","./worker/index.ts","./worker/validation.ts","./shared/types.ts","./worker-configuration.d.ts"],"version":"5.9.3"}

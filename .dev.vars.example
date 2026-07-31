@@ -1,0 +1,4 @@
+# Скопируй в .dev.vars для локальной разработки.
+# DEV_AUTH_EMAIL выключает проверку Cloudflare Access JWT и подставляет
+# этот email как текущего пользователя. НИКОГДА не задавать в production.
+DEV_AUTH_EMAIL=dev@example.com

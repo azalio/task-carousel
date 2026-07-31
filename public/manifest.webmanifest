@@ -1,0 +1,19 @@
+{
+  "name": "Task Carousel",
+  "short_name": "Carousel",
+  "description": "Карусель задач: одна задача за раз, записывайте прогресс и двигайтесь дальше",
+  "lang": "ru",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#eef1f7",
+  "theme_color": "#eef1f7",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
