@@ -1,0 +1,136 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 560" width="100%" role="img"
+     aria-label="Task Carousel — одна задача за раз: зафиксировал прогресс и дальше. Cloudflare Worker, D1, Access, PWA, iOS-native.">
+  <title>Task Carousel — одна задача за раз</title>
+  <desc>Мобильное приложение-карусель задач на Cloudflare Worker, D1 и Access с нативным iOS-дизайном.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#F7F8FB"/>
+      <stop offset="1" stop-color="#ECEEF3"/>
+    </linearGradient>
+    <linearGradient id="tint" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#409CFF"/>
+      <stop offset="1" stop-color="#007AFF"/>
+    </linearGradient>
+    <linearGradient id="screen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#F2F2F7"/>
+      <stop offset="1" stop-color="#EDEDF2"/>
+    </linearGradient>
+    <filter id="cardShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="6" stdDeviation="14" flood-color="#1A2340" flood-opacity="0.12"/>
+    </filter>
+    <filter id="phoneShadow" x="-30%" y="-20%" width="160%" height="150%">
+      <feDropShadow dx="0" dy="18" stdDeviation="34" flood-color="#141B2D" flood-opacity="0.22"/>
+    </filter>
+    <clipPath id="phoneClip"><rect x="792" y="70" width="330" height="470" rx="52"/></clipPath>
+  </defs>
+
+  <!-- Canvas -->
+  <rect width="1200" height="560" rx="30" fill="url(#bg)"/>
+  <rect x="0.5" y="0.5" width="1199" height="559" rx="29.5" fill="none" stroke="#000000" stroke-opacity="0.06"/>
+
+  <!-- ================= Left column ================= -->
+
+  <!-- App icon -->
+  <g transform="translate(84,84)">
+    <rect width="96" height="96" rx="24" fill="url(#tint)"/>
+    <g transform="translate(48,48) scale(0.62)" fill="none" stroke="#ffffff" stroke-width="11" stroke-linecap="round">
+      <path d="M -47 -20 A 52 52 0 0 1 40 -33"/>
+      <path d="M 47 20 A 52 52 0 0 1 -40 33"/>
+    </g>
+    <path d="M 74 30 L 55 42 L 73 53 Z" fill="#ffffff"/>
+    <path d="M 22 66 L 41 54 L 23 43 Z" fill="#ffffff"/>
+    <rect x="34" y="34" width="28" height="28" rx="7" fill="#ffffff"/>
+  </g>
+
+  <!-- Wordmark -->
+  <text x="200" y="126" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, 'Segoe UI', Roboto, sans-serif"
+        font-size="60" font-weight="700" letter-spacing="-2" fill="#1C1C1E">Task Carousel</text>
+  <text x="202" y="164" font-family="-apple-system, BlinkMacSystemFont, system-ui, 'Segoe UI', Roboto, sans-serif"
+        font-size="21" font-weight="600" letter-spacing="0.5" fill="#007AFF">одна задача за раз</text>
+
+  <!-- Pitch -->
+  <text x="86" y="264" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, 'Segoe UI', Roboto, sans-serif"
+        font-size="42" font-weight="700" letter-spacing="-1.2" fill="#1C1C1E">Зафиксировал прогресс —</text>
+  <text x="86" y="316" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, 'Segoe UI', Roboto, sans-serif"
+        font-size="42" font-weight="700" letter-spacing="-1.2" fill="#1C1C1E">и сразу к следующей.</text>
+
+  <text x="86" y="366" font-family="-apple-system, BlinkMacSystemFont, system-ui, 'Segoe UI', Roboto, sans-serif"
+        font-size="22" font-weight="400" fill="#5B6172">Карусель показывает по одной активной задаче.</text>
+  <text x="86" y="396" font-family="-apple-system, BlinkMacSystemFont, system-ui, 'Segoe UI', Roboto, sans-serif"
+        font-size="22" font-weight="400" fill="#5B6172">Завершённые сами выпадают из круга.</text>
+
+  <!-- Chips -->
+  <g font-family="-apple-system, BlinkMacSystemFont, system-ui, 'Segoe UI', Roboto, sans-serif" font-size="19" font-weight="600">
+    <g transform="translate(86,446)">
+      <rect width="220" height="42" rx="21" fill="#ffffff" stroke="#000000" stroke-opacity="0.08"/>
+      <circle cx="26" cy="21" r="5" fill="#F38020"/>
+      <text x="44" y="28" fill="#3A3A3C">Cloudflare Worker</text>
+    </g>
+    <g transform="translate(318,446)">
+      <rect width="66" height="42" rx="21" fill="#ffffff" stroke="#000000" stroke-opacity="0.08"/>
+      <text x="20" y="28" fill="#3A3A3C">D1</text>
+    </g>
+    <g transform="translate(396,446)">
+      <rect width="104" height="42" rx="21" fill="#ffffff" stroke="#000000" stroke-opacity="0.08"/>
+      <text x="20" y="28" fill="#3A3A3C">Access</text>
+    </g>
+    <g transform="translate(512,446)">
+      <rect width="76" height="42" rx="21" fill="#ffffff" stroke="#000000" stroke-opacity="0.08"/>
+      <text x="20" y="28" fill="#3A3A3C">PWA</text>
+    </g>
+    <g transform="translate(600,446)">
+      <rect width="122" height="42" rx="21" fill="url(#tint)"/>
+      <text x="20" y="28" fill="#ffffff">iOS-native</text>
+    </g>
+  </g>
+
+  <!-- ================= Right column: iPhone mockup ================= -->
+  <g filter="url(#phoneShadow)">
+    <rect x="780" y="58" width="354" height="494" rx="60" fill="#0B0B0D"/>
+  </g>
+  <rect x="792" y="70" width="330" height="470" rx="52" fill="url(#screen)"/>
+
+  <g clip-path="url(#phoneClip)">
+    <!-- status / dynamic island -->
+    <rect x="792" y="70" width="330" height="58" fill="#F7F7FB"/>
+    <rect x="925" y="82" width="64" height="18" rx="9" fill="#0B0B0D"/>
+
+    <!-- nav bar -->
+    <rect x="792" y="128" width="330" height="46" fill="#F7F7FB" fill-opacity="0.9"/>
+    <line x1="792" y1="174" x2="1122" y2="174" stroke="#000000" stroke-opacity="0.12"/>
+    <text x="812" y="158" font-family="-apple-system, system-ui, 'Segoe UI', Roboto, sans-serif" font-size="18" font-weight="700" fill="#1C1C1E">Task Carousel</text>
+    <text x="1058" y="159" font-family="-apple-system, system-ui, sans-serif" font-size="24" font-weight="400" fill="#007AFF">+</text>
+    <g stroke="#007AFF" stroke-width="2.4" stroke-linecap="round">
+      <line x1="1088" y1="150" x2="1104" y2="150"/>
+      <line x1="1088" y1="156" x2="1104" y2="156"/>
+      <line x1="1088" y1="162" x2="1104" y2="162"/>
+    </g>
+
+    <!-- indicator -->
+    <text x="957" y="204" text-anchor="middle" font-family="-apple-system, system-ui, sans-serif" font-size="15" font-weight="500" fill="#8A8A8E">2 из 4</text>
+
+    <!-- task card -->
+    <rect x="812" y="220" width="290" height="150" rx="18" fill="#ffffff" filter="url(#cardShadow)"/>
+    <text x="832" y="258" font-family="-apple-system, 'SF Pro Display', system-ui, sans-serif" font-size="24" font-weight="700" letter-spacing="-0.6" fill="#1C1C1E">Подготовить</text>
+    <text x="832" y="286" font-family="-apple-system, 'SF Pro Display', system-ui, sans-serif" font-size="24" font-weight="700" letter-spacing="-0.6" fill="#1C1C1E">доклад</text>
+    <text x="832" y="318" font-family="-apple-system, system-ui, sans-serif" font-size="14" font-weight="600" letter-spacing="0.4" fill="#8A8A8E">ПОСЛЕДНЕЕ</text>
+    <text x="832" y="340" font-family="-apple-system, system-ui, sans-serif" font-size="15" fill="#3A3A3C">Собрал структуру вступления</text>
+    <text x="832" y="362" font-family="-apple-system, system-ui, sans-serif" font-size="14" fill="#007AFF">История прогресса</text>
+
+    <!-- bottom action bar -->
+    <line x1="792" y1="392" x2="1122" y2="392" stroke="#000000" stroke-opacity="0.10"/>
+    <rect x="812" y="404" width="290" height="52" rx="12" fill="#ffffff" stroke="#000000" stroke-opacity="0.12"/>
+    <text x="828" y="435" font-family="-apple-system, system-ui, sans-serif" font-size="15" fill="#B4B4BA">Что сделал и где остановился?</text>
+
+    <rect x="812" y="466" width="290" height="46" rx="12" fill="url(#tint)"/>
+    <text x="957" y="495" text-anchor="middle" font-family="-apple-system, system-ui, sans-serif" font-size="16" font-weight="600" fill="#ffffff">Записать и дальше</text>
+  </g>
+
+  <!-- Orbiting arrows motif around the phone (carousel cue) -->
+  <g fill="none" stroke="#007AFF" stroke-opacity="0.28" stroke-width="3" stroke-linecap="round">
+    <path d="M 760 250 A 210 210 0 0 0 760 360"/>
+    <path d="M 1154 360 A 210 210 0 0 0 1154 250"/>
+  </g>
+  <path d="M 760 360 l -9 -13 l 16 -1 Z" fill="#007AFF" fill-opacity="0.4"/>
+  <path d="M 1154 250 l 9 13 l -16 1 Z" fill="#007AFF" fill-opacity="0.4"/>
+</svg>
