@@ -319,6 +319,27 @@ body {
   border-radius: var(--radius-card);
   box-shadow: var(--shadow-card);
   padding: var(--space-4) var(--space-4) var(--space-2);
+  cursor: grab;
+  touch-action: pan-y; /* горизонталь — перетаскивание карточки, вертикаль — скролл */
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Карточку тащат: следует за жестом мгновенно и «приподнимается». */
+.task-card.is-dragging {
+  cursor: grabbing;
+  transition: none;
+  box-shadow: var(--shadow-pop);
+  will-change: transform;
+}
+
+/* Доводка после отпускания: короткий переход в пределах §8 (<= 150ms),
+   reduced-motion обнуляет его глобальным правилом ниже. */
+.task-card.is-settling {
+  transition:
+    transform var(--duration-card) var(--ease-out),
+    opacity var(--duration-card) var(--ease-out);
+  will-change: transform;
 }
 
 .task-title {

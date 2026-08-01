@@ -28,29 +28,19 @@ async function checkIn(page: Page, note: string, expectNextTitle: string) {
   await expect(noteField(page)).toHaveValue('');
 }
 
-// Свайп влево по карточке (§4.1): стрелок на мобильном нет, эмулируем
-// нативные TouchEvent (dx = -200, dy = 0 — заведомо за порогом 48px).
-async function swipeLeft(page: Page) {
-  await page.locator('.carousel-body').evaluate((el) => {
-    const touch = (x: number, y: number) =>
-      new Touch({ identifier: 1, target: el, clientX: x, clientY: y });
-    el.dispatchEvent(
-      new TouchEvent('touchstart', {
-        bubbles: true,
-        cancelable: true,
-        touches: [touch(280, 300)],
-        changedTouches: [touch(280, 300)],
-      }),
-    );
-    el.dispatchEvent(
-      new TouchEvent('touchend', {
-        bubbles: true,
-        cancelable: true,
-        touches: [],
-        changedTouches: [touch(80, 300)],
-      }),
-    );
-  });
+// Перетаскивание карточки влево (§4.1): стрелок на мобильном нет — тянем саму
+// карточку мышью за порог коммита (dx < -30% ширины, dy = 0), она уезжает к следующей.
+async function dragCardLeft(page: Page) {
+  const box = await page.locator('.task-card').boundingBox();
+  if (!box) throw new Error('нет карточки для перетаскивания');
+  const y = box.y + box.height / 2;
+  const startX = box.x + box.width * 0.7;
+  await page.mouse.move(startX, y);
+  await page.mouse.down();
+  // Несколько шагов, чтобы пересечь порог активации и уехать за порог коммита.
+  await page.mouse.move(startX - 40, y, { steps: 4 });
+  await page.mouse.move(box.x + box.width * 0.1, y, { steps: 6 });
+  await page.mouse.up();
 }
 
 test('основной сценарий: 4 задачи, check-in по кругу, черновик, завершение и возврат', async ({
@@ -94,7 +84,7 @@ test('основной сценарий: 4 задачи, check-in по круг�
 
   // Черновик (§5): текст не теряется при переключении между задачами.
   await noteField(page).fill('незаписанный черновик');
-  await swipeLeft(page); // свайп влево → следующая
+  await dragCardLeft(page); // перетаскивание влево → следующая
   await expect(heading(page, 'Задача 3')).toBeVisible();
   await expect(noteField(page)).toHaveValue('');
   await page.getByRole('button', { name: 'Пропустить' }).click();
