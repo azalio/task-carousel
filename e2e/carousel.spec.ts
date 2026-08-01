@@ -272,6 +272,16 @@ test('интерфейс доступен с клавиатуры и сохра�
   await page.getByRole('button', { name: 'Назад' }).click();
   await expect(heading(page, 'Задача 4')).toBeFocused();
 
+  // Карточка лежит непосредственно над полем ввода в зоне большого пальца.
+  await page.setViewportSize({ width: 390, height: 844 });
+  const portraitCardBox = await page.locator('.task-card').boundingBox();
+  const portraitNoteBox = await note.boundingBox();
+  expect(portraitCardBox).not.toBeNull();
+  expect(portraitNoteBox).not.toBeNull();
+  const cardToNoteGap = portraitNoteBox!.y - (portraitCardBox!.y + portraitCardBox!.height);
+  expect(cardToNoteGap).toBeGreaterThanOrEqual(0);
+  expect(cardToNoteGap).toBeLessThanOrEqual(64);
+
   // Focus ring остаётся системно видимым в forced-colors.
   await page.emulateMedia({ forcedColors: 'active' });
   await note.focus();
@@ -302,6 +312,11 @@ test('интерфейс доступен с клавиатуры и сохра�
   expect(rightArrowBox).not.toBeNull();
   expect(cardBox!.x - (leftArrowBox!.x + leftArrowBox!.width)).toBeLessThanOrEqual(24);
   expect(rightArrowBox!.x - (cardBox!.x + cardBox!.width)).toBeLessThanOrEqual(24);
+  expect(
+    Math.abs(
+      leftArrowBox!.y + leftArrowBox!.height / 2 - (cardBox!.y + cardBox!.height / 2),
+    ),
+  ).toBeLessThanOrEqual(3);
 
   // Пятисекундный Undo не исчезает, пока клавиатурный фокус находится в toast.
   await page.getByRole('button', { name: 'Готово' }).click();
