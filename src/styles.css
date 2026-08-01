@@ -307,7 +307,8 @@ body {
 
 .carousel-body {
   position: relative;
-  flex: 1 1 auto;
+  flex: 0 1 auto;
+  margin-block-start: auto;
   min-height: 0;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
