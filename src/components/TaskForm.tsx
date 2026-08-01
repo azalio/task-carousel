@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
 import { TITLE_MAX, type Task } from '../../shared/types';
 import { api, errorMessage } from '../api';
 import { validateTaskFields } from '../lib/validate';
@@ -20,19 +20,21 @@ export function TaskForm({ mode, initial, online, onClose, onSaved }: TaskFormPr
   const [submitted, setSubmitted] = useState(false);
   const [pending, setPending] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const dialogRef = useRef<HTMLDialogElement>(null);
   const titleRef = useRef<HTMLInputElement>(null);
+  const descriptionRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
+    const previouslyFocused =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const dialog = dialogRef.current;
+    if (dialog && !dialog.open) dialog.showModal();
     titleRef.current?.focus();
-  }, []);
-
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
+    return () => {
+      if (dialog?.open) dialog.close();
+      if (previouslyFocused?.isConnected) previouslyFocused.focus();
     };
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [onClose]);
+  }, []);
 
   const errors = validateTaskFields(title, description);
   // Ошибки длины показываем сразу, «обязательное поле» — после попытки отправки.
@@ -43,8 +45,16 @@ export function TaskForm({ mode, initial, online, onClose, onSaved }: TaskFormPr
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setSubmitted(true);
-    if (errors.title !== undefined || errors.description !== undefined) return;
+    if (errors.title !== undefined) {
+      titleRef.current?.focus();
+      return;
+    }
+    if (errors.description !== undefined) {
+      descriptionRef.current?.focus();
+      return;
+    }
     if (pending || !online) return;
+    if (mode === 'edit' && !initial) return;
 
     setPending(true);
     setSubmitError(null);
@@ -64,50 +74,87 @@ export function TaskForm({ mode, initial, online, onClose, onSaved }: TaskFormPr
     }
   };
 
+  const handleDialogKeyDown = (event: KeyboardEvent<HTMLDialogElement>) => {
+    if (event.key !== 'Tab') return;
+    const focusable = Array.from(
+      event.currentTarget.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), input:not([disabled]), textarea:not([disabled]), [href], [tabindex]:not([tabindex="-1"])',
+      ),
+    ).filter((element) => element.getClientRects().length > 0);
+    if (focusable.length === 0) return;
+
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    const active = document.activeElement;
+    if (event.shiftKey && (active === first || !event.currentTarget.contains(active))) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && active === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  };
+
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div
-        className="modal"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="task-form-title"
-        onClick={(event) => event.stopPropagation()}
-      >
+    <dialog
+      ref={dialogRef}
+      className="modal-overlay"
+      aria-modal="true"
+      aria-labelledby="task-form-title"
+      onCancel={(event) => {
+        event.preventDefault();
+        onClose();
+      }}
+      onClick={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+      onKeyDown={handleDialogKeyDown}
+    >
+      <div className="modal">
         <h2 id="task-form-title" className="modal-title">
           {mode === 'create' ? 'Новая задача' : 'Редактировать задачу'}
         </h2>
         <form onSubmit={(event) => void handleSubmit(event)} noValidate>
-          <label className="field">
-            <span className="field-label">Название</span>
+          <div className="field">
+            <label className="field-label" htmlFor="task-title-input">
+              Название
+            </label>
             <input
+              id="task-title-input"
               ref={titleRef}
               type="text"
               className={showTitleError ? 'field-input input-invalid' : 'field-input'}
               value={title}
               onChange={(event) => setTitle(event.target.value)}
-              aria-invalid={showTitleError}
+              aria-invalid={showTitleError ? true : undefined}
+              aria-describedby={showTitleError ? 'task-title-error' : undefined}
             />
             {showTitleError && (
-              <span className="field-error" role="alert">
+              <span id="task-title-error" className="field-error">
                 {errors.title}
               </span>
             )}
-          </label>
-          <label className="field">
-            <span className="field-label">Описание</span>
+          </div>
+          <div className="field">
+            <label className="field-label" htmlFor="task-description-input">
+              Описание
+            </label>
             <textarea
+              id="task-description-input"
+              ref={descriptionRef}
               rows={4}
               className={showDescriptionError ? 'field-input input-invalid' : 'field-input'}
               value={description}
               onChange={(event) => setDescription(event.target.value)}
-              aria-invalid={showDescriptionError}
+              aria-invalid={showDescriptionError ? true : undefined}
+              aria-describedby={showDescriptionError ? 'task-description-error' : undefined}
             />
             {showDescriptionError && (
-              <span className="field-error" role="alert">
+              <span id="task-description-error" className="field-error">
                 {errors.description}
               </span>
             )}
-          </label>
+          </div>
           {submitError !== null && (
             <p className="inline-error" role="alert">
               {submitError}
@@ -124,6 +171,6 @@ export function TaskForm({ mode, initial, online, onClose, onSaved }: TaskFormPr
           </div>
         </form>
       </div>
-    </div>
+    </dialog>
   );
 }

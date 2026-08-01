@@ -39,12 +39,14 @@ export function HistoryScreen({ taskId, taskTitle, onBack }: HistoryScreenProps)
   }, [load]);
 
   return (
-    <div className="screen">
+    <main className="screen">
       <header className="app-header">
         <button type="button" className="icon-btn" aria-label="Назад" onClick={onBack}>
           <BackIcon />
         </button>
-        <h1 className="app-title">История прогресса</h1>
+        <h1 className="app-title" tabIndex={-1} data-view-heading>
+          История прогресса
+        </h1>
       </header>
       <p className="history-subtitle">{taskTitle}</p>
 
@@ -68,7 +70,12 @@ export function HistoryScreen({ taskId, taskTitle, onBack }: HistoryScreenProps)
       {state.status === 'ready' &&
         (state.entries.length === 0 ? (
           <div className="empty-state">
-            <p className="muted">Записей пока нет</p>
+            <p className="empty-hint">
+              Записей пока нет. Вернитесь к задаче и добавьте первую запись прогресса.
+            </p>
+            <button type="button" className="btn btn-secondary" onClick={onBack}>
+              Вернуться к задаче
+            </button>
           </div>
         ) : (
           <ul className="task-list">
@@ -80,6 +87,6 @@ export function HistoryScreen({ taskId, taskTitle, onBack }: HistoryScreenProps)
             ))}
           </ul>
         ))}
-    </div>
+    </main>
   );
 }

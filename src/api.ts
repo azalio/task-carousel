@@ -33,7 +33,7 @@ export class ApiError extends Error {
 
 export function errorMessage(error: unknown): string {
   if (error instanceof ApiError) return error.message;
-  return 'Что-то пошло не так. Попробуйте ещё раз.';
+  return 'Не удалось выполнить действие. Проверьте подключение и повторите.';
 }
 
 interface RequestOptions {

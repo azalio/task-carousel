@@ -52,6 +52,7 @@ export function CarouselScreen({
   const taskId = task?.id ?? null;
 
   const [note, setNote] = useState(() => (taskId !== null ? loadDraft(taskId) : ''));
+  const [noteSubmitted, setNoteSubmitted] = useState(false);
   const [pending, setPending] = useState<Pending>(null);
   const [error, setError] = useState<string | null>(null);
   const [slide, setSlide] = useState<'next' | 'prev' | null>(null);
@@ -62,10 +63,12 @@ export function CarouselScreen({
   const [dragDx, setDragDx] = useState(0);
   const [dragState, setDragState] = useState<DragState>('idle');
   const dragRef = useRef<DragStart | null>(null);
+  const noteRef = useRef<HTMLTextAreaElement>(null);
 
   // При переключении задачи поднимаем её черновик — текст не теряется (§5).
   useEffect(() => {
     setNote(taskId !== null ? loadDraft(taskId) : '');
+    setNoteSubmitted(false);
   }, [taskId]);
 
   // Новая карточка приходит по центру. Сброс до отрисовки (useLayoutEffect) —
@@ -116,19 +119,29 @@ export function CarouselScreen({
   };
 
   const trimmedNote = note.trim();
+  const noteEmpty = trimmedNote === '';
   const noteTooLong = trimmedNote.length > NOTE_MAX;
-  const canCheckIn =
-    taskId !== null && pending === null && online && trimmedNote !== '' && !noteTooLong;
+  const noteValidationError = noteTooLong
+    ? `Запись не длиннее ${NOTE_MAX} символов`
+    : noteSubmitted && noteEmpty
+      ? 'Введите запись прогресса'
+      : null;
+  const canCheckIn = taskId !== null && pending === null && online;
 
   const checkIn = async () => {
     if (taskId === null || pending !== null || !online) return;
-    if (trimmedNote === '' || noteTooLong) return;
+    setNoteSubmitted(true);
+    if (noteEmpty || noteTooLong) {
+      noteRef.current?.focus();
+      return;
+    }
     setPending('checkin');
     setError(null);
     try {
       const result = await api.checkIn(taskId, trimmedNote);
       clearDraft(taskId);
       setNote('');
+      setNoteSubmitted(false);
       setSlide('next');
       onCurrentChange(result.current);
     } catch (err) {
@@ -269,9 +282,9 @@ export function CarouselScreen({
   };
 
   return (
-    <div className="screen">
+    <main className="screen">
       <header className="app-header">
-        <h1 className="app-title">Task Carousel</h1>
+        <div className="app-title">Task Carousel</div>
         <div className="header-actions">
           <button
             type="button"
@@ -329,7 +342,9 @@ export function CarouselScreen({
               onPointerCancel={handlePointerCancel}
               onTransitionEnd={handleCardTransitionEnd}
             >
-              <h2 className="task-title">{task.title}</h2>
+              <h1 className="task-title" tabIndex={-1} data-view-heading>
+                {task.title}
+              </h1>
               {task.description !== '' && (
                 <p className="task-description">{task.description}</p>
               )}
@@ -364,22 +379,32 @@ export function CarouselScreen({
           </div>
           <div className="action-panel">
             {error !== null && (
-              <p className="inline-error" role="alert">
+              <p className="inline-error action-error" role="alert">
                 {error}
               </p>
             )}
-            {noteTooLong && (
-              <p className="inline-error">Запись не длиннее {NOTE_MAX} символов</p>
-            )}
-            <textarea
-              className="note-input"
-              placeholder="Что сделал и где остановился?"
-              aria-label="Что сделал и где остановился?"
-              rows={3}
-              value={note}
-              onChange={(event) => handleNoteChange(event.target.value)}
-              disabled={pending === 'checkin'}
-            />
+            <div className="note-field">
+              <label className="note-label" htmlFor="progress-note">
+                Что сделал и где остановился?
+              </label>
+              <textarea
+                id="progress-note"
+                ref={noteRef}
+                className={noteValidationError ? 'note-input input-invalid' : 'note-input'}
+                placeholder="Например: закончил черновик, дальше — ревью"
+                rows={3}
+                value={note}
+                onChange={(event) => handleNoteChange(event.target.value)}
+                disabled={pending === 'checkin'}
+                aria-invalid={noteValidationError ? true : undefined}
+                aria-describedby={noteValidationError ? 'progress-note-error' : undefined}
+              />
+              {noteValidationError && (
+                <p id="progress-note-error" className="inline-error">
+                  {noteValidationError}
+                </p>
+              )}
+            </div>
             <button
               type="button"
               className="btn btn-primary"
@@ -412,9 +437,19 @@ export function CarouselScreen({
         </>
       ) : (
         <div className="empty-state">
-          {completedInfo.status === 'loading' && <p className="muted">Загрузка…</p>}
+          {completedInfo.status === 'loading' && (
+            <>
+              <h1 className="sr-only" tabIndex={-1} data-view-heading>
+                Task Carousel
+              </h1>
+              <p className="muted">Загрузка…</p>
+            </>
+          )}
           {completedInfo.status === 'error' && (
             <>
+              <h1 className="empty-title" tabIndex={-1} data-view-heading>
+                Не удалось загрузить задачи
+              </h1>
               <p className="inline-error">Не удалось загрузить данные</p>
               <button
                 type="button"
@@ -428,9 +463,11 @@ export function CarouselScreen({
           {completedInfo.status === 'ready' &&
             (completedInfo.count > 0 ? (
               <>
-                <h2 className="empty-title">Все задачи завершены</h2>
+                <h1 className="empty-title" tabIndex={-1} data-view-heading>
+                  Все задачи завершены
+                </h1>
                 <p className="empty-hint">
-                  Отличная работа! Добавьте новую задачу или посмотрите выполненные.
+                  Добавьте новую задачу или откройте выполненные.
                 </p>
                 <button type="button" className="btn btn-primary" onClick={onOpenCreate}>
                   Добавить новую задачу
@@ -445,7 +482,9 @@ export function CarouselScreen({
               </>
             ) : (
               <>
-                <h2 className="empty-title">Добро пожаловать!</h2>
+                <h1 className="empty-title" tabIndex={-1} data-view-heading>
+                  Добро пожаловать!
+                </h1>
                 <p className="empty-hint">
                   Добавьте первую задачу — карусель будет показывать их по одной и
                   помогать записывать прогресс.
@@ -457,6 +496,6 @@ export function CarouselScreen({
             ))}
         </div>
       )}
-    </div>
+    </main>
   );
 }

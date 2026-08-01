@@ -40,6 +40,30 @@ export default function App() {
 
   const closeToast = useCallback(() => setToast(null), []);
 
+  const previousViewName = useRef<View['name']>('carousel');
+
+  useEffect(() => {
+    const taskTitle = current?.task?.title;
+    if (view.name === 'tasks') {
+      document.title = 'Все задачи · Task Carousel';
+    } else if (view.name === 'history') {
+      document.title = `История: ${view.taskTitle} · Task Carousel`;
+    } else {
+      document.title = taskTitle ? `${taskTitle} · Task Carousel` : 'Task Carousel';
+    }
+  }, [current?.task?.title, view]);
+
+  useEffect(() => {
+    const previousName = previousViewName.current;
+    previousViewName.current = view.name;
+    if (previousName === view.name) return;
+
+    const frame = window.requestAnimationFrame(() => {
+      document.querySelector<HTMLElement>('[data-view-heading]')?.focus();
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [view.name]);
+
   const loadInitial = useCallback(async () => {
     setLoadError(null);
     try {
@@ -91,14 +115,17 @@ export default function App() {
             Нет подключения к интернету
           </div>
         )}
-        <div className="empty-state">
-          <p className="inline-error" role="alert">
-            {loadError}
-          </p>
-          <button type="button" className="btn btn-primary" onClick={() => void loadInitial()}>
-            Повторить
-          </button>
-        </div>
+        <main className="screen">
+          <div className="empty-state">
+            <h1 className="empty-title">Не удалось загрузить Task Carousel</h1>
+            <p className="inline-error" role="alert">
+              {loadError}
+            </p>
+            <button type="button" className="btn btn-primary" onClick={() => void loadInitial()}>
+              Повторить
+            </button>
+          </div>
+        </main>
       </div>
     );
   }
@@ -106,7 +133,10 @@ export default function App() {
   if (current === null) {
     return (
       <div className="app">
-        <div className="splash">Загрузка…</div>
+        <main className="screen" aria-busy="true">
+          <h1 className="sr-only">Task Carousel</h1>
+          <div className="splash">Загрузка…</div>
+        </main>
       </div>
     );
   }
@@ -159,7 +189,7 @@ export default function App() {
         />
       )}
 
-      {toast && <Toast toast={toast} onClose={closeToast} />}
+      {toast && <Toast key={toast.id} toast={toast} onClose={closeToast} />}
     </div>
   );
 }
