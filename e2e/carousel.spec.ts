@@ -189,3 +189,127 @@ test('история прогресса: запись после check-in вид
   await expect(page.locator('.entry-note').first()).toHaveText('запись для истории');
   await expect(page.locator('.entry-note').nth(1)).toHaveText('Прогресс по задаче 4');
 });
+
+test('интерфейс доступен с клавиатуры и сохраняет контент в крайних viewport', async ({
+  page,
+}) => {
+  // Состояние после основных сценариев: текущая «Задача 4», активны задачи 1 и 4.
+  await page.goto('/');
+  await expect(heading(page, 'Задача 4')).toBeVisible();
+  await expect(page.locator('main')).toHaveCount(1);
+
+  // Валидация основной записи доступна после submit и связана с полем.
+  const note = noteField(page);
+  const checkInButton = page.getByRole('button', { name: 'Записать и дальше' });
+  await expect(checkInButton).toBeEnabled();
+  await checkInButton.click();
+  await expect(note).toBeFocused();
+  await expect(note).toHaveAttribute('aria-invalid', 'true');
+  await expect(note).toHaveAttribute('aria-describedby', 'progress-note-error');
+  await expect(page.getByText('Введите запись прогресса')).toBeVisible();
+  await note.fill('черновик для проверки модального окна');
+
+  // Нативный modal dialog удерживает фокус и возвращает его на кнопку открытия.
+  const addButton = page.getByRole('button', { name: 'Добавить задачу' });
+  await addButton.focus();
+  await addButton.press('Enter');
+  let dialog = page.getByRole('dialog');
+  const titleInput = dialog.getByLabel('Название');
+  await expect(titleInput).toBeFocused();
+  await titleInput.fill('Не создавать');
+  await titleInput.press('Control+Enter');
+  await expect(dialog).toBeVisible();
+  await expect(note).toHaveValue('черновик для проверки модального окна');
+  await page.keyboard.press('Shift+Tab');
+  expect(
+    await dialog.evaluate((element) => element.contains(document.activeElement)),
+  ).toBe(true);
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeHidden();
+  await expect(addButton).toBeFocused();
+
+  await addButton.click();
+  dialog = page.getByRole('dialog');
+  const invalidTitle = dialog.getByLabel('Название');
+  await dialog.getByRole('button', { name: 'Добавить' }).click();
+  await expect(invalidTitle).toBeFocused();
+  await expect(invalidTitle).toHaveAccessibleName('Название');
+  await expect(invalidTitle).toHaveAttribute('aria-invalid', 'true');
+  await expect(invalidTitle).toHaveAttribute('aria-describedby', 'task-title-error');
+  await dialog.getByRole('button', { name: 'Отмена' }).click();
+  await expect(addButton).toBeFocused();
+
+  // Menu button и tabs следуют APG-клавиатуре; смена view обновляет title и фокус.
+  const menuButton = page.getByRole('button', { name: 'Меню пользователя' });
+  await menuButton.focus();
+  await menuButton.press('ArrowDown');
+  const allTasksItem = page.getByRole('menuitem', { name: 'Все задачи' });
+  await expect(allTasksItem).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(menuButton).toBeFocused();
+  await menuButton.press('ArrowDown');
+  await allTasksItem.press('Enter');
+
+  const tasksHeading = heading(page, 'Все задачи');
+  await expect(tasksHeading).toBeFocused();
+  await expect(page).toHaveTitle('Все задачи · Task Carousel');
+  await expect(page.locator('main')).toHaveCount(1);
+
+  const activeTab = page.getByRole('tab', { name: 'Активные (2)' });
+  const completedTab = page.getByRole('tab', { name: 'Выполненные (2)' });
+  await activeTab.focus();
+  await activeTab.press('ArrowRight');
+  await expect(completedTab).toBeFocused();
+  await expect(completedTab).toHaveAttribute('aria-selected', 'true');
+  await expect(completedTab).toHaveAttribute('tabindex', '0');
+  await expect(activeTab).toHaveAttribute('tabindex', '-1');
+
+  await page.getByRole('button', { name: 'Назад' }).click();
+  await expect(heading(page, 'Задача 4')).toBeFocused();
+  await page.getByRole('button', { name: 'История прогресса' }).click();
+  await expect(heading(page, 'История прогресса')).toBeFocused();
+  await expect(page).toHaveTitle('История: Задача 4 · Task Carousel');
+  await page.getByRole('button', { name: 'Назад' }).click();
+  await expect(heading(page, 'Задача 4')).toBeFocused();
+
+  // Focus ring остаётся системно видимым в forced-colors.
+  await page.emulateMedia({ forcedColors: 'active' });
+  await note.focus();
+  const focusStyle = await note.evaluate((element) => {
+    const style = getComputedStyle(element);
+    return { style: style.outlineStyle, width: style.outlineWidth };
+  });
+  expect(focusStyle.style).not.toBe('none');
+  expect(Number.parseFloat(focusStyle.width)).toBeGreaterThanOrEqual(2);
+  await page.emulateMedia({ forcedColors: 'none' });
+
+  // В landscape заголовок задачи не прячется под action panel.
+  await page.setViewportSize({ width: 568, height: 320 });
+  const titleBox = await heading(page, 'Задача 4').boundingBox();
+  const actionBox = await page.locator('.action-panel').boundingBox();
+  expect(titleBox).not.toBeNull();
+  expect(actionBox).not.toBeNull();
+  expect(titleBox!.y).toBeGreaterThanOrEqual(0);
+  expect(titleBox!.y + titleBox!.height).toBeLessThan(actionBox!.y);
+
+  // На desktop стрелки стоят рядом с центральной карточкой, а не у краёв окна.
+  await page.setViewportSize({ width: 1280, height: 800 });
+  const cardBox = await page.locator('.task-card').boundingBox();
+  const leftArrowBox = await page.getByRole('button', { name: 'Предыдущая задача' }).boundingBox();
+  const rightArrowBox = await page.getByRole('button', { name: 'Следующая задача' }).boundingBox();
+  expect(cardBox).not.toBeNull();
+  expect(leftArrowBox).not.toBeNull();
+  expect(rightArrowBox).not.toBeNull();
+  expect(cardBox!.x - (leftArrowBox!.x + leftArrowBox!.width)).toBeLessThanOrEqual(24);
+  expect(rightArrowBox!.x - (cardBox!.x + cardBox!.width)).toBeLessThanOrEqual(24);
+
+  // Пятисекундный Undo не исчезает, пока клавиатурный фокус находится в toast.
+  await page.getByRole('button', { name: 'Готово' }).click();
+  const completeToast = page.getByRole('status').filter({ hasText: 'Задача завершена' });
+  const undoButton = completeToast.getByRole('button', { name: 'Отменить' });
+  await undoButton.focus();
+  await page.waitForTimeout(5_200);
+  await expect(completeToast).toBeVisible();
+  await undoButton.press('Enter');
+  await expect(completeToast).toBeHidden();
+});

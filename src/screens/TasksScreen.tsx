@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import type { CarouselCurrent, TaskListItem } from '../../shared/types';
 import { api, errorMessage } from '../api';
 import { TaskForm } from '../components/TaskForm';
@@ -37,6 +37,11 @@ export function TasksScreen({
     null,
   );
   const [editing, setEditing] = useState<TaskListItem | null>(null);
+  const [creating, setCreating] = useState(false);
+  const tabRefs = useRef<Record<Tab, HTMLButtonElement | null>>({
+    active: null,
+    completed: null,
+  });
 
   const load = useCallback(async () => {
     setState({ status: 'loading' });
@@ -87,31 +92,65 @@ export function TasksScreen({
     .filter((t) => t.status === 'completed')
     .sort((a, b) => (b.completedAt ?? 0) - (a.completedAt ?? 0));
 
+  const handleTabKeyDown = (event: KeyboardEvent<HTMLButtonElement>, currentTab: Tab) => {
+    const tabs: Tab[] = ['active', 'completed'];
+    const currentIndex = tabs.indexOf(currentTab);
+    let nextTab: Tab | null = null;
+
+    if (event.key === 'ArrowRight') nextTab = tabs[(currentIndex + 1) % tabs.length];
+    if (event.key === 'ArrowLeft') {
+      nextTab = tabs[(currentIndex - 1 + tabs.length) % tabs.length];
+    }
+    if (event.key === 'Home') nextTab = tabs[0];
+    if (event.key === 'End') nextTab = tabs[tabs.length - 1];
+    if (nextTab === null) return;
+
+    event.preventDefault();
+    setTab(nextTab);
+    window.requestAnimationFrame(() => tabRefs.current[nextTab]?.focus());
+  };
+
   return (
-    <div className="screen">
+    <main className="screen">
       <header className="app-header">
         <button type="button" className="icon-btn" aria-label="Назад" onClick={onBack}>
           <BackIcon />
         </button>
-        <h1 className="app-title">Все задачи</h1>
+        <h1 className="app-title" tabIndex={-1} data-view-heading>
+          Все задачи
+        </h1>
       </header>
 
-      <div className="tabs" role="tablist">
+      <div className="tabs" role="tablist" aria-label="Состояние задач">
         <button
+          ref={(element) => {
+            tabRefs.current.active = element;
+          }}
+          id="tasks-tab-active"
           type="button"
           role="tab"
           aria-selected={tab === 'active'}
+          aria-controls="tasks-panel-active"
+          tabIndex={tab === 'active' ? 0 : -1}
           className={tab === 'active' ? 'tab tab-active' : 'tab'}
           onClick={() => setTab('active')}
+          onKeyDown={(event) => handleTabKeyDown(event, 'active')}
         >
           Активные{state.status === 'ready' ? ` (${active.length})` : ''}
         </button>
         <button
+          ref={(element) => {
+            tabRefs.current.completed = element;
+          }}
+          id="tasks-tab-completed"
           type="button"
           role="tab"
           aria-selected={tab === 'completed'}
+          aria-controls="tasks-panel-completed"
+          tabIndex={tab === 'completed' ? 0 : -1}
           className={tab === 'completed' ? 'tab tab-active' : 'tab'}
           onClick={() => setTab('completed')}
+          onKeyDown={(event) => handleTabKeyDown(event, 'completed')}
         >
           Выполненные{state.status === 'ready' ? ` (${completed.length})` : ''}
         </button>
@@ -134,83 +173,148 @@ export function TasksScreen({
         </div>
       )}
 
-      {state.status === 'ready' && tab === 'active' && (
-        <ul className="task-list">
-          {active.length === 0 && <li className="muted list-empty">Активных задач нет</li>}
-          {active.map((t) => (
-            <li key={t.id} className="task-item">
-              <h3 className="task-item-title">{t.title}</h3>
-              {t.description !== '' && (
-                <p className="task-item-description">{t.description}</p>
-              )}
-              <p className="task-item-meta">
-                {t.lastProgressAt !== null
-                  ? `Последний прогресс: ${formatDateTime(t.lastProgressAt)}`
-                  : 'Прогресса пока нет'}
-                {' · '}
-                {t.progressCount} {pluralRu(t.progressCount, ['запись', 'записи', 'записей'])}
-              </p>
-              <div className="task-item-actions">
-                <button
-                  type="button"
-                  className="btn btn-secondary btn-small"
-                  disabled={pendingId !== null || !online}
-                  aria-busy={pendingId === t.id}
-                  onClick={() => void openTask(t.id)}
-                >
-                  Открыть
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-secondary btn-small"
-                  disabled={pendingId !== null}
-                  onClick={() => setEditing(t)}
-                >
-                  Редактировать
-                </button>
-              </div>
-              {actionError?.taskId === t.id && (
-                <p className="inline-error" role="alert">
-                  {actionError.message}
+      {state.status === 'ready' && (
+        <div
+          id="tasks-panel-active"
+          className="tab-panel"
+          role="tabpanel"
+          aria-labelledby="tasks-tab-active"
+          hidden={tab !== 'active'}
+        >
+          <ul className="task-list">
+            {active.length === 0 && (
+              <li className="list-empty">
+                <p className="list-empty-title">Активных задач нет</p>
+                <p className="list-empty-hint">
+                  Добавьте задачу или верните выполненную в работу.
                 </p>
-              )}
-            </li>
-          ))}
-        </ul>
+                <div className="list-empty-actions">
+                  <button
+                    type="button"
+                    className="btn btn-primary btn-small"
+                    onClick={() => setCreating(true)}
+                  >
+                    Добавить задачу
+                  </button>
+                  {completed.length > 0 && (
+                    <button
+                      type="button"
+                      className="btn btn-secondary btn-small"
+                      onClick={() => setTab('completed')}
+                    >
+                      Посмотреть выполненные
+                    </button>
+                  )}
+                </div>
+              </li>
+            )}
+            {active.map((t) => (
+              <li key={t.id} className="task-item">
+                <h2 className="task-item-title">{t.title}</h2>
+                {t.description !== '' && (
+                  <p className="task-item-description">{t.description}</p>
+                )}
+                <p className="task-item-meta">
+                  {t.lastProgressAt !== null
+                    ? `Последний прогресс: ${formatDateTime(t.lastProgressAt)}`
+                    : 'Прогресса пока нет'}
+                  {' · '}
+                  {t.progressCount}{' '}
+                  {pluralRu(t.progressCount, ['запись', 'записи', 'записей'])}
+                </p>
+                <div className="task-item-actions">
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-small"
+                    disabled={pendingId !== null || !online}
+                    aria-busy={pendingId === t.id}
+                    onClick={() => void openTask(t.id)}
+                  >
+                    Открыть
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-small"
+                    disabled={pendingId !== null}
+                    onClick={() => setEditing(t)}
+                  >
+                    Редактировать
+                  </button>
+                </div>
+                {actionError?.taskId === t.id && (
+                  <p className="inline-error" role="alert">
+                    {actionError.message}
+                  </p>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
 
-      {state.status === 'ready' && tab === 'completed' && (
-        <ul className="task-list">
-          {completed.length === 0 && (
-            <li className="muted list-empty">Выполненных задач нет</li>
-          )}
-          {completed.map((t) => (
-            <li key={t.id} className="task-item">
-              <h3 className="task-item-title">{t.title}</h3>
-              <p className="task-item-meta">
-                {t.completedAt !== null
-                  ? `Завершена: ${formatDate(t.completedAt)}`
-                  : 'Завершена'}
-              </p>
-              <div className="task-item-actions">
+      {state.status === 'ready' && (
+        <div
+          id="tasks-panel-completed"
+          className="tab-panel"
+          role="tabpanel"
+          aria-labelledby="tasks-tab-completed"
+          hidden={tab !== 'completed'}
+        >
+          <ul className="task-list">
+            {completed.length === 0 && (
+              <li className="list-empty">
+                <p className="list-empty-title">Выполненных задач нет</p>
+                <p className="list-empty-hint">Здесь появятся задачи после завершения.</p>
                 <button
                   type="button"
                   className="btn btn-secondary btn-small"
-                  disabled={pendingId !== null || !online}
-                  aria-busy={pendingId === t.id}
-                  onClick={() => void reopenTask(t.id)}
+                  onClick={() => setTab('active')}
                 >
-                  Вернуть в работу
+                  Показать активные
                 </button>
-              </div>
-              {actionError?.taskId === t.id && (
-                <p className="inline-error" role="alert">
-                  {actionError.message}
+              </li>
+            )}
+            {completed.map((t) => (
+              <li key={t.id} className="task-item">
+                <h2 className="task-item-title">{t.title}</h2>
+                <p className="task-item-meta">
+                  {t.completedAt !== null
+                    ? `Завершена: ${formatDate(t.completedAt)}`
+                    : 'Завершена'}
                 </p>
-              )}
-            </li>
-          ))}
-        </ul>
+                <div className="task-item-actions">
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-small"
+                    disabled={pendingId !== null || !online}
+                    aria-busy={pendingId === t.id}
+                    onClick={() => void reopenTask(t.id)}
+                  >
+                    Вернуть в работу
+                  </button>
+                </div>
+                {actionError?.taskId === t.id && (
+                  <p className="inline-error" role="alert">
+                    {actionError.message}
+                  </p>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {creating && (
+        <TaskForm
+          mode="create"
+          online={online}
+          onClose={() => setCreating(false)}
+          onSaved={() => {
+            setCreating(false);
+            onToast('Задача добавлена');
+            void load();
+          }}
+        />
       )}
 
       {editing && (
@@ -226,6 +330,6 @@ export function TasksScreen({
           }}
         />
       )}
-    </div>
+    </main>
   );
 }
