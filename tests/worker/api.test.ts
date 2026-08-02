@@ -183,7 +183,13 @@ describe('POST /api/tasks', () => {
 
 describe('GET /api/carousel/current', () => {
   it('без задач → task null, total 0, currentIndex 0', async () => {
-    expect(await getCurrent()).toEqual({ task: null, currentIndex: 0, total: 0 });
+    expect(await getCurrent()).toEqual({
+      task: null,
+      previousTask: null,
+      nextTask: null,
+      currentIndex: 0,
+      total: 0,
+    });
   });
 
   it('после создания задач текущая — первая, lastProgress null', async () => {
@@ -195,6 +201,32 @@ describe('GET /api/carousel/current', () => {
     expect(current.task).toEqual({
       id: t1.id,
       title: 'Первая',
+      description: '',
+      lastProgress: null,
+    });
+  });
+
+  it('возвращает циклических соседей с последним прогрессом', async () => {
+    const t1 = await createTask('Первая');
+    const t2 = await createTask('Вторая');
+    const t3 = await createTask('Третья');
+
+    const checkIn = await callJson<CheckInResponse>('POST', `/api/tasks/${t1.id}/check-in`, {
+      body: { note: 'Прогресс первой' },
+    });
+    expect(checkIn.status).toBe(201);
+
+    const current = await getCurrent();
+    expect(current.task?.id).toBe(t2.id);
+    expect(current.previousTask).toEqual({
+      id: t1.id,
+      title: 'Первая',
+      description: '',
+      lastProgress: { note: 'Прогресс первой', createdAt: checkIn.body.entry.createdAt },
+    });
+    expect(current.nextTask).toEqual({
+      id: t3.id,
+      title: 'Третья',
       description: '',
       lastProgress: null,
     });
@@ -393,8 +425,15 @@ describe('POST /api/tasks/:taskId/complete', () => {
   it('завершение последней активной → current.task null', async () => {
     const t1 = await createTask('Единственная');
     const { body } = await callJson<CompleteResponse>('POST', `/api/tasks/${t1.id}/complete`);
-    expect(body.current).toEqual({ task: null, currentIndex: 0, total: 0 });
-    expect(await getCurrent()).toEqual({ task: null, currentIndex: 0, total: 0 });
+    const emptyCarousel = {
+      task: null,
+      previousTask: null,
+      nextTask: null,
+      currentIndex: 0,
+      total: 0,
+    };
+    expect(body.current).toEqual(emptyCarousel);
+    expect(await getCurrent()).toEqual(emptyCarousel);
   });
 });
 
