@@ -105,13 +105,43 @@ export function CarouselScreen({
 
   const move = async (direction: Direction) => {
     if (pending !== null || !online || current.total === 0) return;
+    const cachedTask = direction === 'next' ? current.nextTask : current.previousTask;
+    const previousCurrent = current;
+    const optimisticCurrent: CarouselCurrent | null = cachedTask
+      ? {
+          task: cachedTask,
+          // Пока POST сохраняется, известна только карточка, с которой мы пришли.
+          // Для двух задач она является соседом с обеих сторон.
+          previousTask:
+            direction === 'next' || current.total === 2 ? current.task : null,
+          nextTask:
+            direction === 'previous' || current.total === 2 ? current.task : null,
+          currentIndex:
+            direction === 'next'
+              ? (current.currentIndex + 1) % current.total
+              : (current.currentIndex - 1 + current.total) % current.total,
+          total: current.total,
+        }
+      : null;
+
     setPending('move');
     setError(null);
+    if (optimisticCurrent) {
+      setSlide(direction === 'next' ? 'next' : 'prev');
+      onCurrentChange(optimisticCurrent);
+    }
     try {
       const next = await api.carouselMove(direction);
-      setSlide(direction === 'next' ? 'next' : 'prev');
+      if (!optimisticCurrent) {
+        setSlide(direction === 'next' ? 'next' : 'prev');
+      }
+      // Ответ сервера остаётся источником истины и пополняет следующий буфер соседей.
       onCurrentChange(next);
     } catch (err) {
+      if (optimisticCurrent) {
+        setSlide(direction === 'next' ? 'prev' : 'next');
+        onCurrentChange(previousCurrent);
+      }
       setError(errorMessage(err));
     } finally {
       setPending(null);

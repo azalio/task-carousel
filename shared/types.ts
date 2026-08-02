@@ -47,6 +47,8 @@ export interface CarouselTask {
 
 export interface CarouselCurrent {
   task: CarouselTask | null; // null — нет активных задач
+  previousTask: CarouselTask | null; // сосед слева; null при 0–1 активной задаче
+  nextTask: CarouselTask | null; // сосед справа; null при 0–1 активной задаче
   currentIndex: number; // с нуля; 0 при отсутствии задач
   total: number; // число активных задач
 }

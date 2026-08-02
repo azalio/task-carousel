@@ -5,6 +5,7 @@ import { Hono } from 'hono';
 import type { Context } from 'hono';
 import type {
   CarouselCurrent,
+  CarouselTask,
   CheckInResponse,
   CompleteResponse,
   MeResponse,
@@ -89,18 +90,45 @@ async function buildCurrent(
   currentId: string | null,
 ): Promise<CarouselCurrent> {
   if (currentId === null) {
-    return { task: null, currentIndex: 0, total: sortedActive.length };
+    return {
+      task: null,
+      previousTask: null,
+      nextTask: null,
+      currentIndex: 0,
+      total: sortedActive.length,
+    };
   }
   const index = currentIndexOf(sortedActive, currentId);
-  const row = sortedActive[index];
-  const last = await getLastProgress(db, row.id);
+  const previousIndex = (index - 1 + sortedActive.length) % sortedActive.length;
+  const nextIndex = (index + 1) % sortedActive.length;
+  const rows =
+    sortedActive.length > 1
+      ? [sortedActive[index], sortedActive[previousIndex], sortedActive[nextIndex]]
+      : [sortedActive[index]];
+
+  // Буфер всегда ограничен тремя уникальными карточками. Для двух задач previous
+  // и next совпадают, поэтому последнюю запись читаем только один раз.
+  const uniqueRows = [...new Map(rows.map((row) => [row.id, row])).values()];
+  const taskEntries = await Promise.all(
+    uniqueRows.map(async (row) => {
+      const last = await getLastProgress(db, row.id);
+      const task: CarouselTask = {
+        id: row.id,
+        title: row.title,
+        description: row.description,
+        lastProgress: last ? { note: last.note, createdAt: last.created_at } : null,
+      };
+      return [row.id, task] as const;
+    }),
+  );
+  const tasksById = new Map(taskEntries);
+
   return {
-    task: {
-      id: row.id,
-      title: row.title,
-      description: row.description,
-      lastProgress: last ? { note: last.note, createdAt: last.created_at } : null,
-    },
+    task: tasksById.get(sortedActive[index].id) ?? null,
+    previousTask:
+      sortedActive.length > 1 ? (tasksById.get(sortedActive[previousIndex].id) ?? null) : null,
+    nextTask:
+      sortedActive.length > 1 ? (tasksById.get(sortedActive[nextIndex].id) ?? null) : null,
     currentIndex: index,
     total: sortedActive.length,
   };
