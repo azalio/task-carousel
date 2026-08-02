@@ -19,11 +19,16 @@ import type {
   UpdateTaskBody,
 } from '../shared/types';
 
+export const AUTH_REQUIRED_EVENT = 'task-carousel:auth-required';
+export const AUTH_REQUIRED_MESSAGE = 'Войдите снова, чтобы продолжить работу.';
+
+type ClientErrorCode = ApiErrorCode | 'NETWORK_ERROR' | 'AUTH_REQUIRED';
+
 export class ApiError extends Error {
-  readonly code: ApiErrorCode | 'NETWORK_ERROR';
+  readonly code: ClientErrorCode;
   readonly status: number;
 
-  constructor(code: ApiErrorCode | 'NETWORK_ERROR', status: number, message: string) {
+  constructor(code: ClientErrorCode, status: number, message: string) {
     super(message);
     this.name = 'ApiError';
     this.code = code;
@@ -36,13 +41,31 @@ export function errorMessage(error: unknown): string {
   return 'Не удалось выполнить действие. Проверьте подключение и повторите.';
 }
 
+export function isAuthRequiredError(error: unknown): error is ApiError {
+  return error instanceof ApiError && error.code === 'AUTH_REQUIRED';
+}
+
+function authRequiredError(): ApiError {
+  const error = new ApiError('AUTH_REQUIRED', 0, AUTH_REQUIRED_MESSAGE);
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event(AUTH_REQUIRED_EVENT));
+  }
+  return error;
+}
+
 interface RequestOptions {
   method?: string;
   body?: unknown;
 }
 
 async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const init: RequestInit = { method: options.method ?? 'GET' };
+  const init: RequestInit = {
+    method: options.method ?? 'GET',
+    credentials: 'same-origin',
+    // Cloudflare Access отвечает редиректом при истёкшей сессии. В manual-режиме
+    // браузер возвращает opaqueredirect, который можно отличить от обрыва сети.
+    redirect: 'manual',
+  };
   if (options.body !== undefined) {
     init.headers = { 'Content-Type': 'application/json' };
     init.body = JSON.stringify(options.body);
@@ -53,6 +76,10 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     response = await fetch(path, init);
   } catch {
     throw new ApiError('NETWORK_ERROR', 0, 'Нет подключения к интернету');
+  }
+
+  if (response.type === 'opaqueredirect') {
+    throw authRequiredError();
   }
 
   if (!response.ok) {

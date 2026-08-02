@@ -11,6 +11,7 @@
     "deploy": "pnpm build && wrangler deploy",
     "typecheck": "tsc -b",
     "test": "vitest run",
+    "test:access": "pnpm build && playwright test --config playwright.access.config.ts",
     "test:e2e": "playwright test",
     "cf-typegen": "wrangler types"
   },
