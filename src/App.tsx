@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { CarouselCurrent, MeResponse } from '../shared/types';
-import { api, errorMessage } from './api';
+import {
+  api,
+  AUTH_REQUIRED_EVENT,
+  AUTH_REQUIRED_MESSAGE,
+  errorMessage,
+  isAuthRequiredError,
+} from './api';
 import { TaskForm } from './components/TaskForm';
 import { Toast, type ToastAction, type ToastData } from './components/Toast';
 import { useOnline } from './hooks/useOnline';
@@ -15,11 +21,15 @@ type View =
   | { name: 'tasks'; tab: 'active' | 'completed' }
   | { name: 'history'; taskId: string; taskTitle: string };
 
+type LoadFailure =
+  | { kind: 'request'; message: string }
+  | { kind: 'auth'; message: string };
+
 export default function App() {
   const [view, setView] = useState<View>({ name: 'carousel' });
   const [me, setMe] = useState<MeResponse | null>(null);
   const [current, setCurrent] = useState<CarouselCurrent | null>(null);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<LoadFailure | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [toast, setToast] = useState<ToastData | null>(null);
   const online = useOnline();
@@ -64,6 +74,14 @@ export default function App() {
     return () => window.cancelAnimationFrame(frame);
   }, [view.name]);
 
+  useEffect(() => {
+    const handleAuthRequired = () => {
+      setLoadError({ kind: 'auth', message: AUTH_REQUIRED_MESSAGE });
+    };
+    window.addEventListener(AUTH_REQUIRED_EVENT, handleAuthRequired);
+    return () => window.removeEventListener(AUTH_REQUIRED_EVENT, handleAuthRequired);
+  }, []);
+
   const loadInitial = useCallback(async () => {
     setLoadError(null);
     try {
@@ -71,7 +89,11 @@ export default function App() {
       setMe(meResponse);
       setCurrent(carousel);
     } catch (err) {
-      setLoadError(errorMessage(err));
+      setLoadError(
+        isAuthRequiredError(err)
+          ? { kind: 'auth', message: errorMessage(err) }
+          : { kind: 'request', message: errorMessage(err) },
+      );
     }
   }, []);
 
@@ -117,13 +139,25 @@ export default function App() {
         )}
         <main className="screen">
           <div className="empty-state">
-            <h1 className="empty-title">Не удалось загрузить Task Carousel</h1>
+            <h1 className="empty-title">
+              {loadError.kind === 'auth' ? 'Сессия истекла' : 'Не удалось загрузить Task Carousel'}
+            </h1>
             <p className="inline-error" role="alert">
-              {loadError}
+              {loadError.message}
             </p>
-            <button type="button" className="btn btn-primary" onClick={() => void loadInitial()}>
-              Повторить
-            </button>
+            {loadError.kind === 'auth' ? (
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => window.location.reload()}
+              >
+                Войти снова
+              </button>
+            ) : (
+              <button type="button" className="btn btn-primary" onClick={() => void loadInitial()}>
+                Повторить
+              </button>
+            )}
           </div>
         </main>
       </div>

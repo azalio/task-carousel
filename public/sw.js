@@ -1,9 +1,10 @@
 // Service worker Task Carousel (§9): кэш статического app shell.
 // /api и /cdn-cgi никогда не кэшируются. Стратегия обновления:
 //   - хэшированные /assets/* иммутабельны → cache-first;
-//   - навигации и нехэшированные ресурсы (/, /icon.svg, /manifest.webmanifest)
-//     → stale-while-revalidate: отдаём кэш сразу, свежую версию тянем в фоне,
-//     поэтому после деплоя приложение обновляется к следующему запуску.
+//   - навигации → network-first, чтобы редирект Cloudflare Access на повторный
+//     вход не скрывался кешированной оболочкой; shell — только offline fallback;
+//   - нехэшированные ресурсы (/icon.svg, /manifest.webmanifest)
+//     → stale-while-revalidate.
 
 const CACHE_NAME = 'task-carousel-v1';
 
@@ -71,6 +72,22 @@ async function staleWhileRevalidate(event, request, cacheKey) {
   return shell ?? Response.error();
 }
 
+// Навигация сначала идёт в сеть. В частности, opaqueredirect от Cloudflare
+// Access должен вернуться браузеру: тогда он откроет страницу повторного входа.
+// Кешированный shell допустим только при реальном сетевом исключении.
+async function networkFirstNavigation(event, request) {
+  const cache = await caches.open(CACHE_NAME);
+  try {
+    const response = await fetch(request);
+    if (cacheable(response)) {
+      event.waitUntil(cache.put('/', response.clone()));
+    }
+    return response;
+  } catch {
+    return (await cache.match('/')) ?? Response.error();
+  }
+}
+
 self.addEventListener('fetch', (event) => {
   const request = event.request;
   if (request.method !== 'GET') return;
@@ -79,6 +96,11 @@ self.addEventListener('fetch', (event) => {
   if (url.origin !== self.location.origin) return;
   if (url.pathname.startsWith('/api/')) return; // API — только сеть
   if (url.pathname.startsWith('/cdn-cgi/')) return; // Cloudflare Access — только сеть
+
+  if (request.mode === 'navigate') {
+    event.respondWith(networkFirstNavigation(event, request));
+    return;
+  }
 
   // Хэшированные ассеты иммутабельны → cache-first с докэшированием.
   if (url.pathname.startsWith('/assets/')) {
@@ -98,7 +120,5 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Навигации кэшируем под общим ключом shell '/'; остальное — по самому запросу.
-  const cacheKey = request.mode === 'navigate' ? '/' : request;
-  event.respondWith(staleWhileRevalidate(event, request, cacheKey));
+  event.respondWith(staleWhileRevalidate(event, request, request));
 });
